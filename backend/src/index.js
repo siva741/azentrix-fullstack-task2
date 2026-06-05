@@ -15,9 +15,22 @@ const server = http.createServer(app);
 
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
+// Allow any localhost port (Vite can use 5173, 5174, etc.) + configured CLIENT_URL
+const corsOrigin = (origin, callback) => {
+  if (!origin) return callback(null, true); // allow non-browser requests
+  if (
+    /^http:\/\/localhost:\d+$/.test(origin) ||
+    /^http:\/\/127\.0\.0\.1:\d+$/.test(origin) ||
+    origin === CLIENT_URL
+  ) {
+    return callback(null, true);
+  }
+  callback(new Error('Not allowed by CORS'));
+};
+
 const io = new Server(server, {
   cors: {
-    origin: [CLIENT_URL, 'http://localhost:5173', 'http://localhost:3000'],
+    origin: corsOrigin,
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     credentials: true,
   },
@@ -28,7 +41,7 @@ app.set('io', io);
 
 // Middleware
 app.use(cors({
-  origin: [CLIENT_URL, 'http://localhost:5173', 'http://localhost:3000'],
+  origin: corsOrigin,
   credentials: true,
 }));
 app.use(express.json());
