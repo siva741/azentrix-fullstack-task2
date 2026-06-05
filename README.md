@@ -13,8 +13,8 @@ A lightweight, self-hostable, real-time Kanban task collaboration tool built for
 
 | Service | URL |
 |---------|-----|
-| **Frontend** | Coming soon |
-| **Backend API** | Coming soon |
+| **Frontend** | [https://azentrix-fullstack-task2-chi.vercel.app](https://azentrix-fullstack-task2-chi.vercel.app) |
+| **Backend API** | [https://azentrix-taskflow-api.onrender.com](https://azentrix-taskflow-api.onrender.com) |
 
 ---
 
