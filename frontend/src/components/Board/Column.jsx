@@ -29,12 +29,19 @@ export default function Column({ column, board, allMembers, onBoardUpdate }) {
         title: cardTitle,
         columnId: column.id,
       })
-      onBoardUpdate(prev => ({
-        ...prev,
-        columns: prev.columns.map(col =>
-          col.id === column.id ? { ...col, cards: [...col.cards, res.data] } : col
-        )
-      }))
+      onBoardUpdate(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          columns: prev.columns.map(col => {
+            if (col.id !== column.id) return col
+            // Prevent duplicate card if socket event has already processed it
+            const exists = col.cards.some(c => c.id === res.data.id)
+            if (exists) return col
+            return { ...col, cards: [...col.cards, res.data] }
+          })
+        }
+      })
       setCardTitle('')
       setShowAddCard(false)
     } catch (err) {

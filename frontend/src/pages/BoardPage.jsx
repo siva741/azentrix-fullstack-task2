@@ -49,6 +49,11 @@ export default function BoardPage() {
       onEvent('card:created', (card) => {
         setBoard(prev => {
           if (!prev) return prev
+          // Prevent duplicates for the client who created the card
+          const alreadyExists = prev.columns.some(col =>
+            col.cards.some(c => c.id === card.id)
+          )
+          if (alreadyExists) return prev
           return {
             ...prev,
             columns: prev.columns.map(col =>
@@ -66,13 +71,37 @@ export default function BoardPage() {
           if (!prev) return prev
           return {
             ...prev,
-            columns: prev.columns.map(col => ({
-              ...col,
-              cards: col.cards
-                .filter(c => c.id !== updatedCard.id)
-                .concat(col.id === updatedCard.columnId ? [updatedCard] : [])
-                .sort((a, b) => a.order - b.order)
-            }))
+            columns: prev.columns.map(col => {
+              const isTargetCol = col.id === updatedCard.columnId
+              const hasCard = col.cards.some(c => c.id === updatedCard.id)
+
+              if (isTargetCol) {
+                if (hasCard) {
+                  // Update card in place
+                  return {
+                    ...col,
+                    cards: col.cards.map(c => c.id === updatedCard.id ? updatedCard : c)
+                  }
+                } else {
+                  // Add card to target column (it moved from another column)
+                  return {
+                    ...col,
+                    cards: [...col.cards, updatedCard]
+                  }
+                }
+              } else {
+                if (hasCard) {
+                  // Remove card from old column (it moved to another column)
+                  return {
+                    ...col,
+                    cards: col.cards.filter(c => c.id !== updatedCard.id)
+                  }
+                } else {
+                  // Unchanged
+                  return col
+                }
+              }
+            })
           }
         })
       }),
@@ -94,14 +123,24 @@ export default function BoardPage() {
       onEvent('card:reordered', ({ cards: updatedCards }) => {
         setBoard(prev => {
           if (!prev) return prev
+          
+          // Gather all current cards across all columns into a single flat array
+          const allCards = prev.columns.flatMap(col => col.cards)
+          
+          // Map of updated cards to overlay new order/column properties
           const cardMap = {}
           updatedCards.forEach(c => { cardMap[c.id] = c })
+          
+          const updatedAllCards = allCards.map(c => 
+            cardMap[c.id] ? { ...c, ...cardMap[c.id] } : c
+          )
+          
+          // Distribute cards to their correct columns and sort by order
           return {
             ...prev,
             columns: prev.columns.map(col => ({
               ...col,
-              cards: col.cards
-                .map(c => cardMap[c.id] ? { ...c, ...cardMap[c.id] } : c)
+              cards: updatedAllCards
                 .filter(c => c.columnId === col.id)
                 .sort((a, b) => a.order - b.order)
             }))
