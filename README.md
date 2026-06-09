@@ -59,6 +59,8 @@ npm run dev
 
 If you don't control the deployment, the simplest workaround is to run the project locally using the local URLs above. I can also help prepare a short deployment checklist for Render/Vercel if you want to redeploy the backend.
 
+Debugging tip: if you have access to the deployed server, enable verbose error responses temporarily by setting the environment variable `SHOW_ERROR_DETAILS=true` on the host. This will make the server return the error message and stack in the JSON response which helps identify the root cause (remember to turn this off afterward).
+
 ---
 
 ## ✨ Features
