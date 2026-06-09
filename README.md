@@ -9,12 +9,16 @@ A lightweight, self-hostable, real-time Kanban task collaboration tool built for
 
 ---
 
-## 🚀 Live Demo
+## 🚀 Demo & Local URLs
 
 | Service | URL |
 |---------|-----|
-| **Frontend** | [https://azentrix-fullstack-task2-chi.vercel.app](https://azentrix-fullstack-task2-chi.vercel.app) |
-| **Backend API** | [https://azentrix-taskflow-api.onrender.com](https://azentrix-taskflow-api.onrender.com) |
+| **Frontend (Local dev)** | http://localhost:5173/ |
+| **Backend API (Local dev)** | http://localhost:4000/ |
+| **Frontend (Deployed)** | [https://azentrix-fullstack-task2-chi.vercel.app](https://azentrix-fullstack-task2-chi.vercel.app) |
+| **Backend API (Deployed)** | [https://azentrix-taskflow-api.onrender.com](https://azentrix-taskflow-api.onrender.com) |
+
+If you're running the project locally, start the backend first and then the frontend. See the **Local Setup** section below for commands.
 
 ---
 
