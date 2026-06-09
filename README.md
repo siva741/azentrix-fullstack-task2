@@ -203,6 +203,8 @@ JWT_SECRET="your-strong-secret-key"
 JWT_EXPIRES_IN="7d"
 PORT=4000
 CLIENT_URL="http://localhost:5173"
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=ChangeMeToAStrongPassword
 ```
 
 > 💡 **Free database:** Go to [supabase.com](https://supabase.com) → New Project → Settings → Database → Connection String (URI)
@@ -324,6 +326,19 @@ Clients join a board room: `socket.emit('join-board', boardId)`
 3. Add environment variable: `VITE_API_URL=https://YOUR_RENDER_URL/api`
 4. Click Deploy → copy your Vercel URL
 5. Go back to Render → update `CLIENT_URL` to your Vercel URL and redeploy
+
+### CI & Helper deploy scripts
+
+This repo includes a GitHub Actions CI workflow that builds the backend Prisma client and the frontend production build on pushes to `main`:
+
+- File: `.github/workflows/ci.yml`
+
+Two helper scripts are provided to trigger deployments from a machine with the appropriate API tokens:
+
+- `scripts/deploy_render.sh` — triggers a Render deploy via the Render API (requires `RENDER_API_KEY` and `RENDER_SERVICE_ID`).
+- `scripts/deploy_vercel.sh` — deploys the `frontend` folder with the Vercel CLI (requires `VERCEL_TOKEN`).
+
+Add the required secrets to your GitHub repository or to your CI environment before running these scripts.
 
 ---
 
