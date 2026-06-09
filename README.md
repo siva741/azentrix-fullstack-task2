@@ -20,6 +20,45 @@ A lightweight, self-hostable, real-time Kanban task collaboration tool built for
 
 If you're running the project locally, start the backend first and then the frontend. See the **Local Setup** section below for commands.
 
+## ⚠️ Deployment Notes & Troubleshooting
+
+The deployed frontend is publicly available, but the deployed backend API may return `500 Internal Server Error` for some operations (for example, sign-in). If you experience errors when using the deployed site, try the following:
+
+- Use the **Local dev** URLs above to run the app locally (`http://localhost:4000` and `http://localhost:5173`).
+- Common causes for a deployed backend `500` error:
+  - Missing environment variables (`DATABASE_URL`, `JWT_SECRET`, etc.) on the host (Render/Vercel).
+  - Prisma client was not generated on the server (`prisma generate`) or migrations were not applied (`prisma migrate` / `prisma db push`).
+  - Database connectivity issues (wrong connection string, network access, or database is down).
+
+If you control the backend deployment, verify these steps on the server:
+
+1. Ensure environment variables are set (copy from `.env.example`):
+
+```bash
+# in backend/
+cp .env.example .env
+# edit .env and set DATABASE_URL and JWT_SECRET
+```
+
+2. Install dependencies, generate Prisma client, and push schema:
+
+```bash
+cd backend
+npm install
+npx prisma generate
+npm run db:push   # or `npm run db:migrate` if you prefer migrations
+```
+
+3. Start the backend:
+
+```bash
+npm run dev
+```
+
+4. Check the backend logs on your hosting provider (Render, Heroku, etc.) for errors — they usually show stack traces for unhandled exceptions.
+
+If you don't control the deployment, the simplest workaround is to run the project locally using the local URLs above. I can also help prepare a short deployment checklist for Render/Vercel if you want to redeploy the backend.
+
 ---
 
 ## ✨ Features
