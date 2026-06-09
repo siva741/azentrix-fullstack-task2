@@ -15,6 +15,14 @@ const server = http.createServer(app);
 
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
+// Quick environment sanity checks to help catch misconfiguration on deploy
+const requiredEnvs = ['DATABASE_URL', 'JWT_SECRET'];
+const missing = requiredEnvs.filter(k => !process.env[k]);
+if (missing.length > 0) {
+  console.warn('⚠️  Missing required environment variables:', missing.join(', '));
+  console.warn('This may cause runtime errors (500). Set them and restart the server.');
+}
+
 // Allow any localhost port (Vite can use 5173, 5174, etc.) + configured CLIENT_URL
 const corsOrigin = (origin, callback) => {
   if (!origin) return callback(null, true); // allow non-browser requests
@@ -82,8 +90,17 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ message: 'Internal server error' });
+  console.error('Unhandled error:', err && (err.stack || err.message || err));
+
+  // In production we avoid leaking internals. Enable verbose errors only when
+  // SHOW_ERROR_DETAILS=true is set (useful for debugging a misconfigured deploy).
+  const showDetails = process.env.SHOW_ERROR_DETAILS === 'true' || process.env.NODE_ENV !== 'production';
+
+  if (showDetails) {
+    res.status(500).json({ message: err.message || 'Internal server error', stack: err.stack });
+  } else {
+    res.status(500).json({ message: 'Internal server error' });
+  }
 });
 
 // Socket.IO setup
