@@ -49,7 +49,22 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check
+// Root and health check routes
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Azentrix backend is running',
+    api: '/api',
+    health: '/health',
+  });
+});
+
+app.get('/api', (req, res) => {
+  res.json({
+    message: 'Azentrix API root',
+    routes: ['/api/auth', '/api/boards', '/api/cards', '/api/admin'],
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
