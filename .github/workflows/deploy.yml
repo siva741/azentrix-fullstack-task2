@@ -1,0 +1,60 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend to Render
+    runs-on: ubuntu-latest
+    if: "${{ secrets.RENDER_API_KEY != '' && secrets.RENDER_SERVICE_ID != '' }}"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Trigger Render deploy
+        env:
+          RENDER_API_KEY: "${{ secrets.RENDER_API_KEY }}"
+          RENDER_SERVICE_ID: "${{ secrets.RENDER_SERVICE_ID }}"
+        run: |
+          curl -X POST "https://api.render.com/deployments" \
+            -H "Accept: application/json" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{ \"serviceId\": \"$RENDER_SERVICE_ID\" }"
+
+  deploy-frontend:
+    name: Deploy Frontend to Vercel
+    runs-on: ubuntu-latest
+    if: "${{ secrets.VERCEL_TOKEN != '' }}"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install vercel CLI
+        run: npm i -g vercel
+
+      - name: Deploy frontend to Vercel
+        env:
+          VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
+        working-directory: frontend
+        run: vercel --prod --token "$VERCEL_TOKEN"
