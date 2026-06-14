@@ -4,9 +4,7 @@ TaskFlow is a lightweight, self-hostable task collaboration app built for remote
 
 ## Live Links
 
-- Frontend: [https://azentrix-fullstack-task2-chi.vercel.app](https://azentrix-fullstack-task2-chi.vercel.app)
-- Backend API: [https://azentrix-taskflow-api.onrender.com](https://azentrix-taskflow-api.onrender.com)
-- Health check: [https://azentrix-taskflow-api.onrender.com/health](https://azentrix-taskflow-api.onrender.com/health)
+- Live URL: [https://azentrix-fullstack-task2-chi.vercel.app](https://azentrix-fullstack-task2-chi.vercel.app)
 
 Render free-tier services can take a short time to wake up after inactivity. If the backend link times out on the first request, wait a moment and reload.
 
