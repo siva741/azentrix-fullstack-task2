@@ -5,13 +5,11 @@ import { Plus, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import TaskCard from '../Card/TaskCard'
 import api from '../../services/api'
-import { useAuth } from '../../context/AuthContext'
 
 export default function Column({ column, board, allMembers, onBoardUpdate }) {
   const [showAddCard, setShowAddCard] = useState(false)
   const [cardTitle, setCardTitle] = useState('')
   const [adding, setAdding] = useState(false)
-  const { user } = useAuth()
 
   const COLUMN_STYLES = {
     'To Do': { accent: '#6366f1', bg: 'rgba(99,102,241,0.08)' },

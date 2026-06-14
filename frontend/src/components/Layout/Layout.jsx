@@ -1,8 +1,8 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Layers, LayoutDashboard, Shield, LogOut, Wifi } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
-import { useSocket } from '../../context/SocketContext'
+import { useAuth } from '../../context/useAuth'
+import { useSocket } from '../../context/useSocket'
 import toast from 'react-hot-toast'
 
 export default function Layout() {

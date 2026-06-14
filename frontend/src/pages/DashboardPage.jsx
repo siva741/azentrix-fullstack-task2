@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Layout, Users, Trash2, X, ChevronRight } from 'lucide-react'
+import { Plus, Layout, Users, Trash2, X, ChevronRight, ListChecks, CheckCircle2, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 import api from '../services/api'
 
 const containerVariants = {
@@ -12,14 +12,15 @@ const containerVariants = {
 }
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 16 },
   visible: { opacity: 1, y: 0 }
 }
 
-const BOARD_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
+const BOARD_COLORS = ['#0c66e4', '#22a06b', '#f59e0b', '#ef4444', '#6e5dc6', '#0ca6a6']
 
 export default function DashboardPage() {
   const [boards, setBoards] = useState([])
+  const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [boardName, setBoardName] = useState('')
@@ -29,19 +30,30 @@ export default function DashboardPage() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    fetchBoards()
-  }, [])
+    let active = true
 
-  const fetchBoards = async () => {
-    try {
-      const res = await api.get('/boards')
-      setBoards(res.data)
-    } catch {
-      toast.error('Failed to load boards')
-    } finally {
-      setLoading(false)
+    const loadDashboard = async () => {
+      try {
+        const [boardsRes, tasksRes] = await Promise.all([
+          api.get('/boards'),
+          api.get('/tasks'),
+        ])
+        if (!active) return
+        setBoards(boardsRes.data)
+        setTasks(tasksRes.data)
+      } catch {
+        if (active) toast.error('Failed to load dashboard')
+      } finally {
+        if (active) setLoading(false)
+      }
     }
-  }
+
+    loadDashboard()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const createBoard = async (e) => {
     e.preventDefault()
@@ -67,6 +79,7 @@ export default function DashboardPage() {
     try {
       await api.delete(`/boards/${boardId}`)
       setBoards(prev => prev.filter(b => b.id !== boardId))
+      setTasks(prev => prev.filter(t => t.boardId !== boardId))
       toast.success('Board deleted')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to delete board')
@@ -74,6 +87,8 @@ export default function DashboardPage() {
   }
 
   const getBoardColor = (id) => BOARD_COLORS[id.charCodeAt(0) % BOARD_COLORS.length]
+  const completedTasks = tasks.filter(task => task.status === 'DONE').length
+  const pendingTasks = tasks.length - completedTasks
 
   if (loading) return (
     <div className="page-loading">
@@ -85,21 +100,56 @@ export default function DashboardPage() {
     <div className="dashboard-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">My Boards</h1>
-          <p className="page-subtitle">Manage your team's work, all in one place</p>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="page-subtitle">A focused scrum board workspace for your team</p>
         </div>
         <button className="btn-primary" onClick={() => setShowModal(true)}>
           <Plus size={16} /> New Board
         </button>
       </div>
 
+      <div className="dashboard-stats">
+        <div className="stat-card">
+          <Layout size={22} />
+          <div>
+            <div className="stat-number">{boards.length}</div>
+            <div className="stat-label">Total Boards</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <ListChecks size={22} />
+          <div>
+            <div className="stat-number">{tasks.length}</div>
+            <div className="stat-label">Total Tasks</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <CheckCircle2 size={22} />
+          <div>
+            <div className="stat-number">{completedTasks}</div>
+            <div className="stat-label">Completed</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <Clock size={22} />
+          <div>
+            <div className="stat-number">{pendingTasks}</div>
+            <div className="stat-label">Pending</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="section-title-row">
+        <h2>Boards</h2>
+      </div>
+
       {boards.length === 0 ? (
         <motion.div
           className="empty-state"
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
         >
-          <Layout size={64} className="empty-icon" />
+          <Layout size={56} className="empty-icon" />
           <h3>No boards yet</h3>
           <p>Create your first board to start collaborating</p>
           <button className="btn-primary" onClick={() => setShowModal(true)}>
@@ -119,13 +169,10 @@ export default function DashboardPage() {
               className="board-card"
               variants={cardVariants}
               onClick={() => navigate(`/board/${board.id}`)}
-              whileHover={{ y: -4, scale: 1.01 }}
+              whileHover={{ y: -2 }}
               transition={{ duration: 0.2 }}
             >
-              <div
-                className="board-card-header"
-                style={{ background: `linear-gradient(135deg, ${getBoardColor(board.id)}22, ${getBoardColor(board.id)}44)`, borderBottom: `2px solid ${getBoardColor(board.id)}66` }}
-              >
+              <div className="board-card-header">
                 <div className="board-color-dot" style={{ background: getBoardColor(board.id) }}></div>
                 <div className="board-card-actions">
                   {(user.role === 'ADMIN' || board.ownerId === user.id) && (
@@ -167,9 +214,9 @@ export default function DashboardPage() {
           <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowModal(false)}>
             <motion.div
               className="modal"
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
               onClick={e => e.stopPropagation()}
             >
               <div className="modal-header">
@@ -181,7 +228,7 @@ export default function DashboardPage() {
                   <label className="form-label">Board Name *</label>
                   <input
                     className="form-input"
-                    placeholder="e.g. Sprint 1, Marketing Campaign..."
+                    placeholder="e.g. Sprint 1"
                     value={boardName}
                     onChange={e => setBoardName(e.target.value)}
                     required
@@ -189,10 +236,10 @@ export default function DashboardPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Description (optional)</label>
+                  <label className="form-label">Description</label>
                   <textarea
                     className="form-input form-textarea"
-                    placeholder="What's this board for?"
+                    placeholder="What is this board for?"
                     value={boardDesc}
                     onChange={e => setBoardDesc(e.target.value)}
                     rows={3}

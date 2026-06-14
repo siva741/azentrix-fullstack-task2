@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Mail, Lock, User, UserPlus, Layers } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
@@ -22,7 +22,7 @@ export default function RegisterPage() {
     setLoading(true)
     try {
       const user = await register(name, email, password)
-      toast.success(`Welcome, ${user.name}! ${user.role === 'ADMIN' ? '👑 You are the Admin.' : ''}`)
+      toast.success(`Welcome, ${user.name}! ${user.role === 'ADMIN' ? 'You are the Admin.' : ''}`)
       navigate('/dashboard')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Registration failed')
@@ -33,20 +33,14 @@ export default function RegisterPage() {
 
   return (
     <div className="auth-page">
-      <div className="auth-bg">
-        <div className="auth-blob auth-blob-1"></div>
-        <div className="auth-blob auth-blob-2"></div>
-        <div className="auth-blob auth-blob-3"></div>
-      </div>
-
       <motion.div
         className="auth-card"
-        initial={{ opacity: 0, y: 40 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
       >
         <div className="auth-logo">
-          <Layers size={32} className="text-primary" />
+          <Layers size={30} className="text-primary" />
           <span className="auth-logo-text">TaskFlow</span>
         </div>
 
@@ -100,7 +94,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="admin-note">
-            💡 First registered user automatically becomes <strong>Admin</strong>
+            First registered user automatically becomes <strong>Admin</strong>
           </div>
 
           <button type="submit" className="btn-primary" disabled={loading}>

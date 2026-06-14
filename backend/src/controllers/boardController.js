@@ -1,131 +1,128 @@
-const { PrismaClient } = require('@prisma/client');
+const mongoose = require('mongoose');
+const Board = require('../models/Board');
+const Task = require('../models/Task');
+const User = require('../models/User');
+const { buildBoardPayload, serializeBoard, serializeUser, toId } = require('../utils/serializers');
+const { findBoardForUser } = require('../utils/access');
 
-const prisma = new PrismaClient();
+const populateBoard = (query) => query
+  .populate('owner', 'name email role createdAt updatedAt')
+  .populate('members', 'name email role createdAt updatedAt');
 
-const DEFAULT_COLUMNS = [
-  { name: 'To Do', order: 0, color: '#6366f1' },
-  { name: 'In Progress', order: 1, color: '#f59e0b' },
-  { name: 'Done', order: 2, color: '#10b981' },
-];
-
-// GET /api/boards
 const getBoards = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const filter = req.user.role === 'ADMIN'
+      ? {}
+      : { $or: [{ owner: req.user.id }, { members: req.user.id }] };
 
-    const boards = await prisma.board.findMany({
-      where: {
-        OR: [
-          { ownerId: userId },
-          { members: { some: { userId } } },
-        ],
-      },
-      include: {
-        owner: { select: { id: true, name: true, email: true } },
-        members: {
-          include: { user: { select: { id: true, name: true, email: true, role: true } } },
-        },
-        _count: { select: { columns: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const boards = await populateBoard(Board.find(filter).sort({ createdAt: -1 }));
 
-    res.json(boards);
+    res.json(boards.map(serializeBoard));
   } catch (error) {
     console.error('Get boards error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
 
-// POST /api/boards
 const createBoard = async (req, res) => {
   try {
     const { name, description } = req.body;
-    if (!name) return res.status(400).json({ message: 'Board name is required' });
+    if (!name?.trim()) return res.status(400).json({ message: 'Board name is required' });
 
-    const board = await prisma.board.create({
-      data: {
-        name,
-        description,
-        ownerId: req.user.id,
-        columns: {
-          create: DEFAULT_COLUMNS,
-        },
-      },
-      include: {
-        owner: { select: { id: true, name: true, email: true } },
-        columns: { orderBy: { order: 'asc' } },
-        members: {
-          include: { user: { select: { id: true, name: true, email: true, role: true } } },
-        },
-      },
+    const board = await Board.create({
+      name: name.trim(),
+      description: description?.trim() || '',
+      owner: req.user.id,
+      members: [],
     });
 
-    // Emit socket event if io is available
-    const io = req.app.get('io');
-    if (io) io.emit('board:created', board);
+    await board.populate('owner', 'name email role createdAt updatedAt');
 
-    res.status(201).json(board);
+    const serialized = serializeBoard(board);
+    const io = req.app.get('io');
+    if (io) io.emit('board:created', serialized);
+
+    res.status(201).json(serialized);
   } catch (error) {
     console.error('Create board error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
 
-// GET /api/boards/:id
 const getBoard = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const { board, error, status } = await findBoardForUser(id, req.user, { populate: true });
 
-    const board = await prisma.board.findUnique({
-      where: { id },
-      include: {
-        owner: { select: { id: true, name: true, email: true } },
-        columns: {
-          orderBy: { order: 'asc' },
-          include: {
-            cards: {
-              orderBy: { order: 'asc' },
-              include: {
-                assignee: { select: { id: true, name: true, email: true } },
-                createdBy: { select: { id: true, name: true, email: true } },
-              },
-            },
-          },
-        },
-        members: {
-          include: { user: { select: { id: true, name: true, email: true, role: true } } },
-        },
-      },
-    });
+    if (!board) return res.status(status).json({ message: error });
 
-    if (!board) return res.status(404).json({ message: 'Board not found' });
+    const tasks = await Task.find({ board: id })
+      .populate('assignee', 'name email role createdAt updatedAt')
+      .populate('createdBy', 'name email role createdAt updatedAt')
+      .sort({ status: 1, order: 1, createdAt: 1 });
 
-    const isMember = board.ownerId === userId || board.members.some((m) => m.userId === userId);
-    if (!isMember && req.user.role !== 'ADMIN') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    res.json(board);
+    res.json(buildBoardPayload(board, tasks));
   } catch (error) {
     console.error('Get board error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
 
-// DELETE /api/boards/:id
+const updateBoard = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, members } = req.body;
+    const { board, error, status } = await findBoardForUser(id, req.user);
+
+    if (!board) return res.status(status).json({ message: error });
+    if (toId(board.owner) !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ message: 'Only the board owner or an admin can update it' });
+    }
+
+    if (name !== undefined) {
+      if (!name?.trim()) return res.status(400).json({ message: 'Board name is required' });
+      board.name = name.trim();
+    }
+
+    if (description !== undefined) {
+      board.description = description?.trim() || '';
+    }
+
+    if (Array.isArray(members)) {
+      const validMemberIds = members.filter((memberId) => mongoose.isValidObjectId(memberId));
+      const users = await User.find({ _id: { $in: validMemberIds } }).select('_id');
+      board.members = users
+        .map((member) => member._id)
+        .filter((memberId) => toId(memberId) !== toId(board.owner));
+    }
+
+    await board.save();
+    await board.populate('owner', 'name email role createdAt updatedAt');
+    await board.populate('members', 'name email role createdAt updatedAt');
+
+    const serialized = serializeBoard(board);
+    const io = req.app.get('io');
+    if (io) io.to(id).emit('board:updated', serialized);
+
+    res.json(serialized);
+  } catch (error) {
+    console.error('Update board error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 const deleteBoard = async (req, res) => {
   try {
     const { id } = req.params;
-    const board = await prisma.board.findUnique({ where: { id } });
+    const board = mongoose.isValidObjectId(id) ? await Board.findById(id) : null;
 
     if (!board) return res.status(404).json({ message: 'Board not found' });
-    if (board.ownerId !== req.user.id && req.user.role !== 'ADMIN') {
+    if (toId(board.owner) !== req.user.id && req.user.role !== 'ADMIN') {
       return res.status(403).json({ message: 'Only the board owner can delete it' });
     }
 
-    await prisma.board.delete({ where: { id } });
+    await Task.deleteMany({ board: id });
+    await Board.findByIdAndDelete(id);
 
     const io = req.app.get('io');
     if (io) io.emit('board:deleted', { id });
@@ -137,63 +134,59 @@ const deleteBoard = async (req, res) => {
   }
 };
 
-// POST /api/boards/:id/members
 const addMember = async (req, res) => {
   try {
     const { id } = req.params;
     const { email } = req.body;
+    const normalizedEmail = email?.trim().toLowerCase();
 
-    const board = await prisma.board.findUnique({ where: { id } });
+    const board = mongoose.isValidObjectId(id) ? await Board.findById(id) : null;
     if (!board) return res.status(404).json({ message: 'Board not found' });
-    if (board.ownerId !== req.user.id && req.user.role !== 'ADMIN') {
+    if (toId(board.owner) !== req.user.id && req.user.role !== 'ADMIN') {
       return res.status(403).json({ message: 'Only the board owner can add members' });
     }
 
-    const userToAdd = await prisma.user.findUnique({ where: { email } });
+    if (!normalizedEmail) return res.status(400).json({ message: 'Email is required' });
+
+    const userToAdd = await User.findOne({ email: normalizedEmail }).select('name email role createdAt updatedAt');
     if (!userToAdd) return res.status(404).json({ message: 'User not found' });
 
-    if (board.ownerId === userToAdd.id) {
+    if (toId(board.owner) === toId(userToAdd)) {
       return res.status(400).json({ message: 'User is already the board owner' });
     }
 
-    const existing = await prisma.boardMember.findUnique({
-      where: { boardId_userId: { boardId: id, userId: userToAdd.id } },
-    });
-    if (existing) return res.status(400).json({ message: 'User is already a member' });
+    if (board.members.some((memberId) => toId(memberId) === toId(userToAdd))) {
+      return res.status(400).json({ message: 'User is already a member' });
+    }
 
-    await prisma.boardMember.create({ data: { boardId: id, userId: userToAdd.id } });
-
-    const updatedBoard = await prisma.board.findUnique({
-      where: { id },
-      include: {
-        members: {
-          include: { user: { select: { id: true, name: true, email: true, role: true } } },
-        },
-      },
-    });
+    board.members.push(userToAdd._id);
+    await board.save();
+    await board.populate('owner', 'name email role createdAt updatedAt');
+    await board.populate('members', 'name email role createdAt updatedAt');
 
     const io = req.app.get('io');
-    if (io) io.to(id).emit('board:memberAdded', { boardId: id, user: userToAdd });
+    if (io) io.to(id).emit('board:memberAdded', { boardId: id, user: serializeUser(userToAdd) });
 
-    res.status(201).json(updatedBoard);
+    res.status(201).json(serializeBoard(board));
   } catch (error) {
     console.error('Add member error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
 
-// DELETE /api/boards/:id/members/:userId
 const removeMember = async (req, res) => {
   try {
     const { id, userId } = req.params;
+    const board = mongoose.isValidObjectId(id) ? await Board.findById(id) : null;
 
-    const board = await prisma.board.findUnique({ where: { id } });
     if (!board) return res.status(404).json({ message: 'Board not found' });
-    if (board.ownerId !== req.user.id && req.user.role !== 'ADMIN') {
+    if (toId(board.owner) !== req.user.id && req.user.role !== 'ADMIN') {
       return res.status(403).json({ message: 'Only the board owner can remove members' });
     }
 
-    await prisma.boardMember.deleteMany({ where: { boardId: id, userId } });
+    board.members = board.members.filter((memberId) => toId(memberId) !== userId);
+    await board.save();
+    await Task.updateMany({ board: id, assignee: userId }, { $unset: { assignee: '' } });
 
     const io = req.app.get('io');
     if (io) io.to(id).emit('board:memberRemoved', { boardId: id, userId });
@@ -205,4 +198,12 @@ const removeMember = async (req, res) => {
   }
 };
 
-module.exports = { getBoards, createBoard, getBoard, deleteBoard, addMember, removeMember };
+module.exports = {
+  getBoards,
+  createBoard,
+  getBoard,
+  updateBoard,
+  deleteBoard,
+  addMember,
+  removeMember,
+};

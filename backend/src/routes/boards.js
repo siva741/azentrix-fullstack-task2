@@ -1,7 +1,13 @@
 const express = require('express');
 const { authenticate } = require('../middleware/auth');
 const {
-  getBoards, createBoard, getBoard, deleteBoard, addMember, removeMember,
+  getBoards,
+  createBoard,
+  getBoard,
+  updateBoard,
+  deleteBoard,
+  addMember,
+  removeMember,
 } = require('../controllers/boardController');
 const { getCards, createCard, reorderCards } = require('../controllers/cardController');
 
@@ -12,6 +18,8 @@ router.use(authenticate);
 router.get('/', getBoards);
 router.post('/', createBoard);
 router.get('/:id', getBoard);
+router.put('/:id', updateBoard);
+router.patch('/:id', updateBoard);
 router.delete('/:id', deleteBoard);
 
 router.post('/:id/members', addMember);

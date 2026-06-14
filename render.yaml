@@ -5,10 +5,10 @@ services:
     region: oregon
     plan: free
     rootDir: backend
-    buildCommand: npm install && npx prisma generate
+    buildCommand: npm install
     startCommand: node src/index.js
     envVars:
-      - key: DATABASE_URL
+      - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
         sync: false

@@ -1,42 +1,40 @@
 const bcrypt = require('bcryptjs');
-const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
-
-const prisma = new PrismaClient();
+const { connectDB } = require('../src/config/db');
+const User = require('../src/models/User');
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const ADMIN_NAME = process.env.ADMIN_NAME || 'Admin User';
-const ADMIN_ROLE = process.env.ADMIN_ROLE || 'ADMIN';
 
 if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
   console.error('Missing ADMIN_EMAIL or ADMIN_PASSWORD environment variables.');
-  console.error('Set ADMIN_EMAIL and ADMIN_PASSWORD before running this script.');
   process.exit(1);
 }
 
 async function seed() {
   try {
+    await connectDB();
     const hashed = await bcrypt.hash(ADMIN_PASSWORD, 12);
+    const email = ADMIN_EMAIL.trim().toLowerCase();
 
-    const existing = await prisma.user.findUnique({ where: { email: ADMIN_EMAIL } });
-    if (existing) {
-      await prisma.user.update({
-        where: { email: ADMIN_EMAIL },
-        data: { name: ADMIN_NAME, password: hashed, role: ADMIN_ROLE },
-      });
-      console.log('Updated existing admin user:', ADMIN_EMAIL);
-    } else {
-      await prisma.user.create({
-        data: { name: ADMIN_NAME, email: ADMIN_EMAIL, password: hashed, role: ADMIN_ROLE },
-      });
-      console.log('Created admin user:', ADMIN_EMAIL);
-    }
+    const user = await User.findOneAndUpdate(
+      { email },
+      {
+        name: ADMIN_NAME,
+        email,
+        password: hashed,
+        role: 'ADMIN',
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    console.log(`Admin ready: ${user.email}`);
   } catch (err) {
-    console.error('Seeding admin failed:', err);
+    console.error('Seeding admin failed:', err.message);
     process.exitCode = 1;
   } finally {
-    await prisma.$disconnect();
+    process.exit();
   }
 }
 

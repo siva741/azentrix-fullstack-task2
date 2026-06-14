@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Mail, Lock, LogIn, Layers } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -28,25 +28,19 @@ export default function LoginPage() {
 
   return (
     <div className="auth-page">
-      <div className="auth-bg">
-        <div className="auth-blob auth-blob-1"></div>
-        <div className="auth-blob auth-blob-2"></div>
-        <div className="auth-blob auth-blob-3"></div>
-      </div>
-
       <motion.div
         className="auth-card"
-        initial={{ opacity: 0, y: 40 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
       >
         <div className="auth-logo">
-          <Layers size={32} className="text-primary" />
+          <Layers size={30} className="text-primary" />
           <span className="auth-logo-text">TaskFlow</span>
         </div>
 
-        <h1 className="auth-title">Welcome back</h1>
-        <p className="auth-subtitle">Sign in to your workspace</p>
+        <h1 className="auth-title">Sign in</h1>
+        <p className="auth-subtitle">Open your team workspace</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
@@ -71,7 +65,7 @@ export default function LoginPage() {
               <input
                 type="password"
                 className="form-input"
-                placeholder="••••••••"
+                placeholder="Your password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required

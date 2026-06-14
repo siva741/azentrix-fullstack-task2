@@ -11,7 +11,7 @@ export default function KanbanBoard({ board, onBoardUpdate, allMembers }) {
 
   const onDragEnd = useCallback(async (result) => {
     setDragging(false)
-    const { destination, source, draggableId } = result
+    const { destination, source } = result
 
     if (!destination) return
     if (destination.droppableId === source.droppableId && destination.index === source.index) return
@@ -27,7 +27,7 @@ export default function KanbanBoard({ board, onBoardUpdate, allMembers }) {
     const dstCol = newColumns.find(c => c.id === destination.droppableId)
 
     const [movedCard] = srcCol.cards.splice(source.index, 1)
-    const updatedCard = { ...movedCard, columnId: destination.droppableId }
+    const updatedCard = { ...movedCard, columnId: destination.droppableId, status: destination.droppableId }
     dstCol.cards.splice(destination.index, 0, updatedCard)
 
     onBoardUpdate(prev => ({ ...prev, columns: newColumns }))
@@ -36,13 +36,13 @@ export default function KanbanBoard({ board, onBoardUpdate, allMembers }) {
     const cardsToUpdate = []
     newColumns.forEach(col => {
       col.cards.forEach((card, index) => {
-        cardsToUpdate.push({ id: card.id, columnId: col.id, order: index })
+        cardsToUpdate.push({ id: card.id, columnId: col.id, status: col.id, order: index })
       })
     })
 
     try {
-      await api.patch(`/boards/${board.id}/cards/reorder`, { cards: cardsToUpdate })
-    } catch (err) {
+      await api.patch(`/boards/${board.id}/cards/reorder`, { cards: cardsToUpdate, movedCardId: movedCard.id })
+    } catch {
       toast.error('Failed to save card position')
       // Revert optimistic update by refetching
     }

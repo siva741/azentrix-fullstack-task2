@@ -1,401 +1,246 @@
-# TaskFlow — Multi-User Task Management System
+# TaskFlow - Multi-User Task Management System
 
-A lightweight, self-hostable, real-time Kanban task collaboration tool built for remote teams.
+TaskFlow is a lightweight, self-hostable task collaboration app built for remote teams. It works like a focused mini Trello/Jira scrum board with JWT authentication, MongoDB persistence, draggable cards, role-based permissions, and near real-time Socket.IO updates.
 
-![TaskFlow](https://img.shields.io/badge/TaskFlow-Kanban-6366f1?style=for-the-badge&logo=trello)
-![Node](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js)
-![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-3ECF8E?style=for-the-badge&logo=supabase)
+## Live Links
 
----
+- Frontend: [https://azentrix-fullstack-task2-chi.vercel.app](https://azentrix-fullstack-task2-chi.vercel.app)
+- Backend API: [https://azentrix-taskflow-api.onrender.com](https://azentrix-taskflow-api.onrender.com)
+- Health check: [https://azentrix-taskflow-api.onrender.com/health](https://azentrix-taskflow-api.onrender.com/health)
 
-## 🚀 Demo & Local URLs
+Render free-tier services can take a short time to wake up after inactivity. If the backend link times out on the first request, wait a moment and reload.
 
-| Service | URL |
-|---------|-----|
-| **Frontend (Local dev)** | http://localhost:5173/ |
-| **Backend API (Local dev)** | http://localhost:4000/ |
-| **Frontend (Deployed)** | [https://azentrix-fullstack-task2-chi.vercel.app](https://azentrix-fullstack-task2-chi.vercel.app) |
-| **Backend API (Deployed)** | [https://azentrix-taskflow-api.onrender.com](https://azentrix-taskflow-api.onrender.com) |
+## Features
 
-If you're running the project locally, start the backend first and then the frontend. See the **Local Setup** section below for commands.
+- User registration and login with JWT auth
+- Password hashing with bcrypt
+- MongoDB database using Mongoose
+- Boards with default columns: To Do, In Progress, Done
+- Drag-and-drop cards
+- Card fields: title, description, assignee, due date, priority, status
+- Priority colors for Low, Medium, and High
+- Due date badges for upcoming, due today, and overdue cards
+- Near real-time updates with Socket.IO board rooms
+- Admin role for user management and full board/card control
+- Member role limited to managing their own cards
+- Dashboard totals for boards, tasks, completed tasks, and pending tasks
+- Admin page for creating users, switching roles, and deleting users
+- Render backend config and Vercel frontend config included
 
-## ⚠️ Deployment Notes & Troubleshooting
+## Tech Stack
 
-The deployed frontend is publicly available, but the deployed backend API may return `500 Internal Server Error` for some operations (for example, sign-in). If you experience errors when using the deployed site, try the following:
+| Layer | Technology |
+| --- | --- |
+| Frontend | React, Vite, React Router |
+| UI | CSS, lucide-react, framer-motion, react-hot-toast |
+| Drag and drop | @hello-pangea/dnd |
+| Realtime | Socket.IO, socket.io-client |
+| Backend | Node.js, Express |
+| Database | MongoDB Atlas, Mongoose |
+| Auth | JWT, bcryptjs |
+| Deployment | Vercel frontend, Render backend |
 
-- Use the **Local dev** URLs above to run the app locally (`http://localhost:4000` and `http://localhost:5173`).
-- Common causes for a deployed backend `500` error:
-  - Missing environment variables (`DATABASE_URL`, `JWT_SECRET`, etc.) on the host (Render/Vercel).
-  - Prisma client was not generated on the server (`prisma generate`) or migrations were not applied (`prisma migrate` / `prisma db push`).
-  - Database connectivity issues (wrong connection string, network access, or database is down).
+## Folder Structure
 
-If you control the backend deployment, verify these steps on the server:
-
-1. Ensure environment variables are set (copy from `.env.example`):
-
-```bash
-# in backend/
-cp .env.example .env
-# edit .env and set DATABASE_URL and JWT_SECRET
-```
-
-2. Install dependencies, generate Prisma client, and push schema:
-
-```bash
-cd backend
-npm install
-npx prisma generate
-npm run db:push   # or `npm run db:migrate` if you prefer migrations
-```
-
-3. Start the backend:
-
-```bash
-npm run dev
-```
-
-4. Check the backend logs on your hosting provider (Render, Heroku, etc.) for errors — they usually show stack traces for unhandled exceptions.
-
-If you don't control the deployment, the simplest workaround is to run the project locally using the local URLs above. I can also help prepare a short deployment checklist for Render/Vercel if you want to redeploy the backend.
-
-Debugging tip: if you have access to the deployed server, enable verbose error responses temporarily by setting the environment variable `SHOW_ERROR_DETAILS=true` on the host. This will make the server return the error message and stack in the JSON response which helps identify the root cause (remember to turn this off afterward).
-
----
-
-## ✨ Features
-
-- 🔐 **JWT Authentication** — Register and login with automatic role assignment (first user becomes Admin)
-- 📋 **Kanban Boards** — Create boards with 3 default columns: To Do, In Progress, Done
-- 🃏 **Rich Task Cards** — Title, description, assignee, due date, and priority tag (Low / Medium / High / Urgent)
-- 🖱️ **Drag & Drop** — Move cards between columns using `@hello-pangea/dnd`
-- ⚡ **Real-Time Sync** — Multiple users on the same board see live updates via Socket.IO WebSockets
-- 👥 **Board Members** — Board owners can invite members by email
-- 👑 **Role-Based Access Control**
-  - Admins: manage all cards, boards, and users
-  - Members: can only edit or delete their own cards
-- 🛡️ **Admin Panel** — View all users, toggle roles (Admin ↔ Member), delete users
-
----
-
-## 🛠 Tech Stack
-
-### Backend
-| Technology | Purpose |
-|-----------|---------|
-| Node.js + Express | REST API server |
-| Prisma ORM | Type-safe database access |
-| PostgreSQL (Supabase) | Relational database |
-| Socket.IO | Real-time WebSocket events |
-| JWT (jsonwebtoken) | Stateless authentication |
-| bcryptjs | Secure password hashing |
-
-### Frontend
-| Technology | Purpose |
-|-----------|---------|
-| React 18 + Vite | UI framework and build tool |
-| React Router DOM | Client-side routing |
-| @hello-pangea/dnd | Drag and drop for Kanban |
-| Framer Motion | Smooth UI animations |
-| Socket.IO Client | Real-time board updates |
-| Axios | HTTP API client |
-| react-hot-toast | Toast notifications |
-| date-fns | Date formatting |
-
----
-
-## 📁 Project Structure
-
-```
+```text
 azentrix-fullstack-task2/
-├── backend/
-│   ├── prisma/
-│   │   └── schema.prisma          # DB schema (User, Board, Column, Card)
-│   ├── src/
-│   │   ├── controllers/
-│   │   │   ├── authController.js  # Register, Login, GetMe
-│   │   │   ├── boardController.js # Board CRUD + member management
-│   │   │   ├── cardController.js  # Card CRUD + reorder
-│   │   │   └── adminController.js # User management (Admin only)
-│   │   ├── middleware/
-│   │   │   ├── auth.js            # JWT verification middleware
-│   │   │   └── roles.js           # Role-based access guard
-│   │   ├── routes/
-│   │   │   ├── auth.js            # /api/auth/*
-│   │   │   ├── boards.js          # /api/boards/*
-│   │   │   ├── cards.js           # /api/cards/*
-│   │   │   └── admin.js           # /api/admin/*
-│   │   ├── socket/
-│   │   │   └── index.js           # Socket.IO board room handlers
-│   │   ├── utils/
-│   │   │   └── jwt.js             # Token generate/verify helpers
-│   │   └── index.js               # Express + Socket.IO entry point
-│   ├── .env.example
-│   └── package.json
-│
-└── frontend/
-    ├── src/
-    │   ├── components/
-    │   │   ├── Board/
-    │   │   │   ├── KanbanBoard.jsx # DragDropContext + optimistic reorder
-    │   │   │   └── Column.jsx      # Droppable column + add card inline form
-    │   │   ├── Card/
-    │   │   │   ├── TaskCard.jsx    # Draggable card with priority bar + due date
-    │   │   │   └── CardModal.jsx   # Full card edit modal
-    │   │   └── Layout/
-    │   │       └── Layout.jsx      # Sidebar + nav + user info
-    │   ├── context/
-    │   │   ├── AuthContext.jsx     # JWT auth state: login/register/logout
-    │   │   └── SocketContext.jsx   # Socket.IO connection + joinBoard/leaveBoard
-    │   ├── pages/
-    │   │   ├── LoginPage.jsx
-    │   │   ├── RegisterPage.jsx
-    │   │   ├── DashboardPage.jsx   # Board grid + create/delete modal
-    │   │   ├── BoardPage.jsx       # Kanban view + real-time socket listeners
-    │   │   └── AdminPage.jsx       # User management table
-    │   ├── services/
-    │   │   └── api.js              # Axios instance with auth interceptors
-    │   ├── App.jsx                 # React Router with protected routes
-    │   ├── main.jsx                # App entry + context providers
-    │   └── index.css               # Dark glassmorphism design system
-    ├── .env.example
-    └── package.json
+  backend/
+    scripts/
+      seedAdmin.js
+      setup.js
+    src/
+      config/db.js
+      controllers/
+      middleware/
+      models/
+      routes/
+      socket/
+      utils/
+      index.js
+  frontend/
+    public/
+    src/
+      components/
+      context/
+      pages/
+      services/
+      App.jsx
+      main.jsx
+      index.css
+  render.yaml
+  PROJECT_REPORT.md
 ```
 
----
+## Environment Variables
 
-## ⚙️ Local Setup
-
-### Prerequisites
-- Node.js v18+
-- npm v9+
-- A PostgreSQL database — free via [Supabase](https://supabase.com)
-
----
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/siva741/azentrix-fullstack-task2.git
-cd azentrix-fullstack-task2
-```
-
----
-
-### 2. Backend Setup
-
-```bash
-cd backend
-npm install
-```
-
-Copy and configure the environment file:
-
-```bash
-cp .env.example .env
-```
-
-Fill in `.env`:
+Backend `backend/.env`:
 
 ```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
-JWT_SECRET="your-strong-secret-key"
+MONGODB_URI="mongodb+srv://USER:PASSWORD@CLUSTER.mongodb.net/azentrix_taskflow?retryWrites=true&w=majority"
+JWT_SECRET="replace-with-a-long-random-secret"
 JWT_EXPIRES_IN="7d"
 PORT=4000
 CLIENT_URL="http://localhost:5173"
+
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=ChangeMeToAStrongPassword
+ADMIN_NAME=Admin User
 ```
 
-> 💡 **Free database:** Go to [supabase.com](https://supabase.com) → New Project → Settings → Database → Connection String (URI)
+Frontend `frontend/.env`:
 
-Push the schema to your database:
-
-```bash
-npm run db:push
+```env
+VITE_API_URL="http://localhost:4000/api"
 ```
 
-Start the backend:
+## Local Installation
+
+1. Install backend dependencies:
 
 ```bash
-npm run dev
-```
-
-Backend runs at: `http://localhost:4000`
-
----
-
-### 3. Frontend Setup
-
-```bash
-cd ../frontend
+cd backend
 npm install
-```
-
-Copy and configure the environment file:
-
-```bash
 cp .env.example .env
 ```
 
-Fill in `.env`:
+2. Add your MongoDB Atlas URI and JWT secret in `backend/.env`.
 
-```env
-VITE_API_URL=http://localhost:4000/api
+3. Optionally seed an admin user:
+
+```bash
+npm run seed:admin
 ```
 
-Start the frontend:
+4. Start the backend:
 
 ```bash
 npm run dev
 ```
 
-Frontend runs at: `http://localhost:5173`
+5. Install and start the frontend in a second terminal:
 
----
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
+```
 
-## 🌐 API Reference
+6. Open `http://localhost:5173`.
+
+The first user who registers also becomes an admin automatically.
+
+## API Routes
 
 ### Auth
-| Method | Endpoint | Description | Auth |
-|--------|---------|-------------|------|
-| POST | `/api/auth/register` | Register new user | ❌ |
-| POST | `/api/auth/login` | Login → returns JWT | ❌ |
-| GET | `/api/auth/me` | Get current user | ✅ |
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
 
 ### Boards
-| Method | Endpoint | Description | Auth |
-|--------|---------|-------------|------|
-| GET | `/api/boards` | List user's boards | ✅ |
-| POST | `/api/boards` | Create board | ✅ |
-| GET | `/api/boards/:id` | Get board with columns & cards | ✅ |
-| DELETE | `/api/boards/:id` | Delete board | ✅ Owner/Admin |
-| POST | `/api/boards/:id/members` | Add member by email | ✅ Owner/Admin |
-| DELETE | `/api/boards/:id/members/:userId` | Remove member | ✅ Owner/Admin |
 
-### Cards
-| Method | Endpoint | Description | Auth |
-|--------|---------|-------------|------|
-| GET | `/api/boards/:boardId/cards` | List all cards on board | ✅ |
-| POST | `/api/boards/:boardId/cards` | Create card | ✅ |
-| PATCH | `/api/cards/:id` | Update card | ✅ Owner/Admin |
-| DELETE | `/api/cards/:id` | Delete card | ✅ Owner/Admin |
-| PATCH | `/api/boards/:boardId/cards/reorder` | Reorder after drag & drop | ✅ |
+- `GET /api/boards`
+- `POST /api/boards`
+- `GET /api/boards/:id`
+- `PUT /api/boards/:id`
+- `DELETE /api/boards/:id`
+- `POST /api/boards/:id/members`
+- `DELETE /api/boards/:id/members/:userId`
 
-### Admin
-| Method | Endpoint | Description | Auth |
-|--------|---------|-------------|------|
-| GET | `/api/admin/users` | List all users | ✅ Admin |
-| PATCH | `/api/admin/users/:id` | Update user role | ✅ Admin |
-| DELETE | `/api/admin/users/:id` | Delete user | ✅ Admin |
+### Cards and Tasks
 
----
+- `GET /api/boards/:boardId/cards`
+- `POST /api/boards/:boardId/cards`
+- `PATCH /api/boards/:boardId/cards/reorder`
+- `PATCH /api/cards/:id`
+- `DELETE /api/cards/:id`
+- `GET /api/tasks`
+- `POST /api/tasks`
+- `PATCH /api/tasks/:id`
+- `DELETE /api/tasks/:id`
 
-## ⚡ Real-Time Events (Socket.IO)
+### Admin Users
 
-Clients join a board room: `socket.emit('join-board', boardId)`
+- `GET /api/admin/users`
+- `POST /api/admin/users`
+- `PATCH /api/admin/users/:id`
+- `DELETE /api/admin/users/:id`
 
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `card:created` | Card object | New card added to board |
-| `card:updated` | Card object | Card details edited |
-| `card:deleted` | `{ id, boardId }` | Card removed |
-| `card:reordered` | `{ boardId, cards[] }` | Cards moved between columns |
-| `board:created` | Board object | New board created |
-| `board:deleted` | `{ id }` | Board removed |
-| `board:memberAdded` | `{ boardId, user }` | New member joined board |
+The same admin user-management API is also available at `/api/users`.
 
----
+## Deployment
 
-## 🚀 Deployment
+### MongoDB Atlas
 
-### Backend → Render
+1. Create a free MongoDB Atlas cluster.
+2. Create a database user and password.
+3. Add your IP address or `0.0.0.0/0` for hosted services.
+4. Copy the connection string and use it as `MONGODB_URI`.
 
-1. Push code to GitHub
-2. Go to [render.com](https://render.com) → New Web Service
-3. Connect repository → set **Root Directory** to `backend`
-4. **Build Command:** `npm install && npx prisma generate`
-5. **Start Command:** `node src/index.js`
-6. Add environment variables (same as `.env`)
-7. Click Deploy → copy your Render URL
+### Render Backend
 
-### Frontend → Vercel
+Use the included `render.yaml`, or create a Web Service manually:
 
-1. Go to [vercel.com](https://vercel.com) → New Project
-2. Connect GitHub repo → set **Root Directory** to `frontend`
-3. Add environment variable: `VITE_API_URL=https://YOUR_RENDER_URL/api`
-4. Click Deploy → copy your Vercel URL
-5. Go back to Render → update `CLIENT_URL` to your Vercel URL and redeploy
+- Root directory: `backend`
+- Build command: `npm install`
+- Start command: `node src/index.js`
+- Environment:
+  - `MONGODB_URI`
+  - `JWT_SECRET`
+  - `JWT_EXPIRES_IN=7d`
+  - `CLIENT_URL=https://your-vercel-app.vercel.app`
+  - `NODE_ENV=production`
 
-### CI & Helper deploy scripts
+### Vercel Frontend
 
-This repo includes a GitHub Actions CI workflow that builds the backend Prisma client and the frontend production build on pushes to `main`:
+Create a Vercel project from the `frontend` folder:
 
-- File: `.github/workflows/ci.yml`
+- Framework: Vite
+- Build command: `npm install && npm run build`
+- Output directory: `dist`
+- Environment:
+  - `VITE_API_URL=https://your-render-service.onrender.com/api`
 
-Two helper scripts are provided to trigger deployments from a machine with the appropriate API tokens:
+If you redeploy under different Render or Vercel URLs, update the Live Links section above.
 
-- `scripts/deploy_render.sh` — triggers a Render deploy via the Render API (requires `RENDER_API_KEY` and `RENDER_SERVICE_ID`).
-- `scripts/deploy_vercel.sh` — deploys the `frontend` folder with the Vercel CLI (requires `VERCEL_TOKEN`).
+## Screenshots and Demo
 
-Add the required secrets to your GitHub repository or to your CI environment before running these scripts.
+Add screenshots here after deployment:
 
----
+- Login and registration page
+- Dashboard with board totals
+- Board page with To Do, In Progress, and Done columns
+- Admin user-management page
 
-## 🎨 Design Decisions
+Demo checklist:
 
-I chose a **dark glassmorphism** aesthetic because it gives the app a modern, premium feel without being distracting during focused work sessions. Key decisions:
+1. Register the first user and confirm the Admin role.
+2. Create a board.
+3. Add a member by email.
+4. Create cards with priority, assignee, and due date.
+5. Open the board in two browsers and drag a card between columns.
+6. Confirm the second browser updates in near real time.
+7. Log in as a member and confirm only owned cards can be edited, moved, or deleted.
 
-- Deep navy (`#0a0a14`) base keeps the UI easy on the eyes during long sessions
-- Priority is shown as a colored top-border on each card — instantly scannable without cluttering the card
-- Socket.IO was chosen over polling because it gives true bidirectional real-time sync with minimal server overhead
-- Prisma ORM made it straightforward to handle complex relational queries (boards → columns → cards) with full type safety
-- The first registered user automatically becomes Admin — this removes the need for a separate admin seeding step in fresh deployments
+## Verification
 
----
+These checks pass in the completed project:
 
-## 📊 Database Schema
-
-```
-User        id, name, email, password, role (ADMIN|MEMBER), createdAt
-Board       id, name, description, ownerId, createdAt
-BoardMember boardId, userId  [unique pair]
-Column      id, name, order, color, boardId
-Card        id, title, description, priority, dueDate, order,
-            columnId, assigneeId, createdById, createdAt
-```
-
----
-
-## 🔑 Role Permissions
-
-| Action | Admin | Member (own card) | Member (others' card) |
-|--------|-------|-------------------|-----------------------|
-| Create card | ✅ | ✅ | ✅ |
-| Edit card | ✅ | ✅ | ❌ |
-| Delete card | ✅ | ✅ | ❌ |
-| Move card (drag) | ✅ | ✅ | ❌ |
-| Create board | ✅ | ✅ | ✅ |
-| Delete board | ✅ any | ✅ own | ❌ |
-| Add members | ✅ | ✅ own board | ❌ |
-| Manage users | ✅ | ❌ | ❌ |
-
----
-
-## 🧰 Scripts
-
-### Backend
 ```bash
-npm run dev        # Start with nodemon (hot reload)
-npm start          # Production start
-npm run db:push    # Push Prisma schema to database
-npm run db:migrate # Create and run migrations
-npm run db:studio  # Open Prisma Studio (visual DB browser)
+cd frontend
+npm run lint
+npm run build
 ```
 
-### Frontend
 ```bash
-npm run dev        # Vite dev server (localhost:5173)
-npm run build      # Production build
-npm run preview    # Preview production build locally
+cd ..
+Get-ChildItem -Recurse -Include *.js -Path backend\src,backend\scripts | ForEach-Object { node --check $_.FullName }
 ```
+
+## Notes
+
+- The app requires a real MongoDB connection to run the backend.
+- If the backend exits locally, check `backend/.env` and replace any old SQL/Prisma `DATABASE_URL` with `MONGODB_URI`.
+- The backend starts only after MongoDB connects, which prevents deployment from appearing healthy while the database is unavailable.
+- Socket.IO rooms are used so updates are broadcast to users on the same board.
