@@ -4,9 +4,11 @@ TaskFlow is a lightweight, self-hostable task collaboration app built for remote
 
 ## Live Links
 
-- Frontend: add your Vercel URL after deployment
-- Backend API: add your Render URL after deployment
-- Health check: `https://your-render-service.onrender.com/health`
+- Frontend: [https://azentrix-fullstack-task2-chi.vercel.app](https://azentrix-fullstack-task2-chi.vercel.app)
+- Backend API: [https://azentrix-taskflow-api.onrender.com](https://azentrix-taskflow-api.onrender.com)
+- Health check: [https://azentrix-taskflow-api.onrender.com/health](https://azentrix-taskflow-api.onrender.com/health)
+
+Render free-tier services can take a short time to wake up after inactivity. If the backend link times out on the first request, wait a moment and reload.
 
 ## Features
 
@@ -200,7 +202,7 @@ Create a Vercel project from the `frontend` folder:
 - Environment:
   - `VITE_API_URL=https://your-render-service.onrender.com/api`
 
-After both deployments are live, update the Live Links section above.
+If you redeploy under different Render or Vercel URLs, update the Live Links section above.
 
 ## Screenshots and Demo
 
