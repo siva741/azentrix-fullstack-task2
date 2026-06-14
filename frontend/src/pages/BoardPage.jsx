@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, UserPlus, X, Wifi, WifiOff } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAuth } from '../context/AuthContext'
-import { useSocket } from '../context/SocketContext'
+import { useAuth } from '../context/useAuth'
+import { useSocket } from '../context/useSocket'
 import api from '../services/api'
 import KanbanBoard from '../components/Board/KanbanBoard'
 
@@ -20,50 +20,53 @@ export default function BoardPage() {
   const [memberEmail, setMemberEmail] = useState('')
   const [addingMember, setAddingMember] = useState(false)
 
-  const fetchBoard = useCallback(async () => {
-    try {
-      const res = await api.get(`/boards/${boardId}`)
-      setBoard(res.data)
-    } catch (err) {
-      toast.error('Failed to load board')
-      navigate('/dashboard')
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    let active = true
+
+    const loadBoard = async () => {
+      try {
+        const res = await api.get(`/boards/${boardId}`)
+        if (active) setBoard(res.data)
+      } catch {
+        if (active) {
+          toast.error('Failed to load board')
+          navigate('/dashboard')
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadBoard()
+
+    return () => {
+      active = false
     }
   }, [boardId, navigate])
 
   useEffect(() => {
-    fetchBoard()
-  }, [fetchBoard])
+    if (!board || !connected) return undefined
+    joinBoard(boardId)
+    return () => leaveBoard(boardId)
+  }, [board, boardId, connected, joinBoard, leaveBoard])
 
   useEffect(() => {
-    if (board) {
-      joinBoard(boardId)
-      return () => leaveBoard(boardId)
-    }
-  }, [board, boardId, joinBoard, leaveBoard])
+    if (!connected) return undefined
 
-  // Real-time socket listeners
-  useEffect(() => {
     const cleanups = [
       onEvent('card:created', (card) => {
         setBoard(prev => {
           if (!prev) return prev
-          // Prevent duplicates for the client who created the card
-          const alreadyExists = prev.columns.some(col =>
-            col.cards.some(c => c.id === card.id)
-          )
+          const alreadyExists = prev.columns.some(col => col.cards.some(c => c.id === card.id))
           if (alreadyExists) return prev
           return {
             ...prev,
             columns: prev.columns.map(col =>
-              col.id === card.columnId
-                ? { ...col, cards: [...col.cards, card] }
-                : col
+              col.id === card.columnId ? { ...col, cards: [...col.cards, card] } : col
             )
           }
         })
-        toast('📌 New card added', { icon: '🆕' })
+        toast.success('New card added')
       }),
 
       onEvent('card:updated', (updatedCard) => {
@@ -75,32 +78,19 @@ export default function BoardPage() {
               const isTargetCol = col.id === updatedCard.columnId
               const hasCard = col.cards.some(c => c.id === updatedCard.id)
 
-              if (isTargetCol) {
-                if (hasCard) {
-                  // Update card in place
-                  return {
-                    ...col,
-                    cards: col.cards.map(c => c.id === updatedCard.id ? updatedCard : c)
-                  }
-                } else {
-                  // Add card to target column (it moved from another column)
-                  return {
-                    ...col,
-                    cards: [...col.cards, updatedCard]
-                  }
-                }
-              } else {
-                if (hasCard) {
-                  // Remove card from old column (it moved to another column)
-                  return {
-                    ...col,
-                    cards: col.cards.filter(c => c.id !== updatedCard.id)
-                  }
-                } else {
-                  // Unchanged
-                  return col
-                }
+              if (isTargetCol && hasCard) {
+                return { ...col, cards: col.cards.map(c => c.id === updatedCard.id ? updatedCard : c) }
               }
+
+              if (isTargetCol && !hasCard) {
+                return { ...col, cards: [...col.cards, updatedCard].sort((a, b) => a.order - b.order) }
+              }
+
+              if (!isTargetCol && hasCard) {
+                return { ...col, cards: col.cards.filter(c => c.id !== updatedCard.id) }
+              }
+
+              return col
             })
           }
         })
@@ -117,39 +107,52 @@ export default function BoardPage() {
             }))
           }
         })
-        toast('🗑️ Card removed', { icon: '🗑️' })
+        toast.success('Card removed')
       }),
 
       onEvent('card:reordered', ({ cards: updatedCards }) => {
         setBoard(prev => {
           if (!prev) return prev
-          
-          // Gather all current cards across all columns into a single flat array
+
           const allCards = prev.columns.flatMap(col => col.cards)
-          
-          // Map of updated cards to overlay new order/column properties
           const cardMap = {}
-          updatedCards.forEach(c => { cardMap[c.id] = c })
-          
-          const updatedAllCards = allCards.map(c => 
-            cardMap[c.id] ? { ...c, ...cardMap[c.id] } : c
+          updatedCards.forEach(card => { cardMap[card.id] = card })
+
+          const updatedAllCards = allCards.map(card =>
+            cardMap[card.id] ? { ...card, ...cardMap[card.id] } : card
           )
-          
-          // Distribute cards to their correct columns and sort by order
+
           return {
             ...prev,
             columns: prev.columns.map(col => ({
               ...col,
               cards: updatedAllCards
-                .filter(c => c.columnId === col.id)
+                .filter(card => card.columnId === col.id)
                 .sort((a, b) => a.order - b.order)
             }))
           }
         })
       }),
+
+      onEvent('board:memberAdded', ({ user: addedUser }) => {
+        setBoard(prev => {
+          if (!prev || !addedUser) return prev
+          const exists = prev.members?.some(member => member.user?.id === addedUser.id)
+          if (exists || prev.ownerId === addedUser.id) return prev
+          return { ...prev, members: [...(prev.members || []), { user: addedUser }] }
+        })
+      }),
+
+      onEvent('board:memberRemoved', ({ userId }) => {
+        setBoard(prev => {
+          if (!prev) return prev
+          return { ...prev, members: (prev.members || []).filter(member => member.user?.id !== userId) }
+        })
+      }),
     ]
+
     return () => cleanups.forEach(cleanup => cleanup && cleanup())
-  }, [onEvent])
+  }, [connected, onEvent])
 
   const addMember = async (e) => {
     e.preventDefault()
@@ -159,7 +162,7 @@ export default function BoardPage() {
       setBoard(prev => ({ ...prev, members: res.data.members }))
       setMemberEmail('')
       setShowMemberModal(false)
-      toast.success('Member added!')
+      toast.success('Member added')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to add member')
     } finally {
@@ -179,8 +182,8 @@ export default function BoardPage() {
 
   const allMembers = [
     board.owner,
-    ...(board.members?.map(m => m.user) || [])
-  ]
+    ...(board.members?.map(member => member.user) || [])
+  ].filter(Boolean)
 
   const isOwnerOrAdmin = board.ownerId === user.id || user.role === 'ADMIN'
 
@@ -188,7 +191,7 @@ export default function BoardPage() {
     <div className="board-page">
       <div className="board-header">
         <div className="board-header-left">
-          <button className="icon-btn" onClick={() => navigate('/dashboard')}>
+          <button className="icon-btn" onClick={() => navigate('/dashboard')} title="Back to dashboard">
             <ArrowLeft size={18} />
           </button>
           <div>
@@ -209,7 +212,7 @@ export default function BoardPage() {
                 key={member.id}
                 className="avatar"
                 title={member.name}
-                style={{ background: `hsl(${member.name.charCodeAt(0) * 15}, 65%, 45%)` }}
+                style={{ background: `hsl(${member.name.charCodeAt(0) * 15}, 62%, 40%)` }}
               >
                 {member.name.charAt(0).toUpperCase()}
               </div>
@@ -237,7 +240,7 @@ export default function BoardPage() {
         <div className="modal-overlay" onClick={() => setShowMemberModal(false)}>
           <motion.div
             className="modal modal-sm"
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             onClick={e => e.stopPropagation()}
           >

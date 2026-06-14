@@ -1,25 +1,33 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import api from '../services/api'
-
-const AuthContext = createContext(null)
+import { AuthContext } from './authContext'
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => Boolean(localStorage.getItem('token')))
 
   useEffect(() => {
     const token = localStorage.getItem('token')
-    if (token) {
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      api.get('/auth/me')
-        .then(res => setUser(res.data.user))
-        .catch(() => {
-          localStorage.removeItem('token')
-          delete api.defaults.headers.common['Authorization']
-        })
-        .finally(() => setLoading(false))
-    } else {
-      setLoading(false)
+
+    if (!token) return undefined
+
+    let active = true
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+
+    api.get('/auth/me')
+      .then(res => {
+        if (active) setUser(res.data.user)
+      })
+      .catch(() => {
+        localStorage.removeItem('token')
+        delete api.defaults.headers.common['Authorization']
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
     }
   }, [])
 
@@ -52,10 +60,4 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   )
-}
-
-export const useAuth = () => {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
-  return ctx
 }

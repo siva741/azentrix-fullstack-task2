@@ -4,11 +4,11 @@ import { X, Trash2, Save, User, Calendar, Flag, AlignLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import api from '../../services/api'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/useAuth'
 
-const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT']
+const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH']
 const PRIORITY_COLORS = {
-  LOW: '#10b981', MEDIUM: '#f59e0b', HIGH: '#f97316', URGENT: '#ef4444'
+  LOW: '#22a06b', MEDIUM: '#f59e0b', HIGH: '#ef4444'
 }
 
 export default function CardModal({ card, board, allMembers, onClose, onBoardUpdate }) {
@@ -16,7 +16,7 @@ export default function CardModal({ card, board, allMembers, onClose, onBoardUpd
   const [form, setForm] = useState({
     title: card.title,
     description: card.description || '',
-    priority: card.priority,
+    priority: PRIORITIES.includes(card.priority) ? card.priority : 'MEDIUM',
     dueDate: card.dueDate ? format(new Date(card.dueDate), 'yyyy-MM-dd') : '',
     assigneeId: card.assigneeId || '',
     columnId: card.columnId,

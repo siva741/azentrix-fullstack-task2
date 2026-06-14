@@ -34,9 +34,9 @@ jobs:
         working-directory: backend
         run: npm ci
 
-      - name: Generate Prisma client
+      - name: Check backend JavaScript syntax
         working-directory: backend
-        run: npx prisma generate
+        run: find src scripts -name "*.js" -print0 | xargs -0 -n1 node --check
 
       - name: Cache node modules (frontend)
         uses: actions/cache@v4
@@ -57,4 +57,4 @@ jobs:
       - name: Smoke test backend health endpoint
         if: always()
         run: |
-          echo "Skipping live health check in CI (no DATABASE_URL)."
+          echo "Skipping live health check in CI (no MONGODB_URI)."

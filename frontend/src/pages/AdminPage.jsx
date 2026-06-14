@@ -1,27 +1,59 @@
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { Shield, Trash2, Crown, UserCheck, Users } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Shield, Trash2, Crown, UserCheck, Users, Plus, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../services/api'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
+
+const blankUserForm = {
+  name: '',
+  email: '',
+  password: '',
+  role: 'MEMBER',
+}
 
 export default function AdminPage() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [form, setForm] = useState(blankUserForm)
+  const [creating, setCreating] = useState(false)
   const { user: currentUser } = useAuth()
 
   useEffect(() => {
-    fetchUsers()
+    let active = true
+
+    const loadUsers = async () => {
+      try {
+        const res = await api.get('/admin/users')
+        if (active) setUsers(res.data)
+      } catch {
+        if (active) toast.error('Failed to load users')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadUsers()
+
+    return () => {
+      active = false
+    }
   }, [])
 
-  const fetchUsers = async () => {
+  const createUser = async (e) => {
+    e.preventDefault()
+    setCreating(true)
     try {
-      const res = await api.get('/admin/users')
-      setUsers(res.data)
-    } catch {
-      toast.error('Failed to load users')
+      const res = await api.post('/admin/users', form)
+      setUsers(prev => [...prev, res.data])
+      setForm(blankUserForm)
+      setShowCreateModal(false)
+      toast.success('User created')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create user')
     } finally {
-      setLoading(false)
+      setCreating(false)
     }
   }
 
@@ -56,6 +88,9 @@ export default function AdminPage() {
           <h1 className="page-title"><Shield size={24} /> Admin Panel</h1>
           <p className="page-subtitle">Manage workspace users and permissions</p>
         </div>
+        <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+          <Plus size={16} /> New User
+        </button>
       </div>
 
       <div className="admin-stats">
@@ -101,13 +136,13 @@ export default function AdminPage() {
                 key={u.id}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
+                transition={{ delay: i * 0.03 }}
               >
                 <td>
                   <div className="user-cell">
                     <div
                       className="avatar avatar-sm"
-                      style={{ background: `hsl(${u.name.charCodeAt(0) * 15}, 65%, 45%)` }}
+                      style={{ background: `hsl(${u.name.charCodeAt(0) * 15}, 62%, 40%)` }}
                     >
                       {u.name.charAt(0).toUpperCase()}
                     </div>
@@ -154,6 +189,52 @@ export default function AdminPage() {
           </tbody>
         </table>
       </div>
+
+      <AnimatePresence>
+        {showCreateModal && (
+          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCreateModal(false)}>
+            <motion.div
+              className="modal modal-sm"
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h2>Create User</h2>
+                <button className="icon-btn" onClick={() => setShowCreateModal(false)}><X size={18} /></button>
+              </div>
+              <form onSubmit={createUser} className="modal-form">
+                <div className="form-group">
+                  <label className="form-label">Name</label>
+                  <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required autoFocus />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Email</label>
+                  <input type="email" className="form-input" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Password</label>
+                  <input type="password" className="form-input" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} minLength={6} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Role</label>
+                  <select className="form-input form-select" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
+                    <option value="MEMBER">Member</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
+                </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
+                  <button type="submit" className="btn-primary" disabled={creating}>
+                    {creating ? <><span className="spinner-sm"></span> Creating...</> : <><Plus size={16} /> Create</>}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -17,14 +17,14 @@ createRoot(document.getElementById('root')).render(
             position="top-right"
             toastOptions={{
               style: {
-                background: '#1e1b4b',
-                color: '#e0e7ff',
-                border: '1px solid rgba(99, 102, 241, 0.3)',
-                borderRadius: '12px',
+                background: '#ffffff',
+                color: '#172b4d',
+                border: '1px solid #dfe1e6',
+                borderRadius: '8px',
                 fontSize: '14px',
               },
-              success: { iconTheme: { primary: '#10b981', secondary: '#1e1b4b' } },
-              error: { iconTheme: { primary: '#ef4444', secondary: '#1e1b4b' } },
+              success: { iconTheme: { primary: '#22a06b', secondary: '#ffffff' } },
+              error: { iconTheme: { primary: '#ef4444', secondary: '#ffffff' } },
             }}
           />
         </SocketProvider>

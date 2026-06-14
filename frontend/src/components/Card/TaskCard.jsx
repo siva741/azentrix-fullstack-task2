@@ -1,16 +1,14 @@
 import { useState } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
-import { motion } from 'framer-motion'
-import { Calendar, User, AlertCircle, Pencil } from 'lucide-react'
+import { Calendar, AlertCircle, Pencil } from 'lucide-react'
 import { format, isPast, isToday } from 'date-fns'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/useAuth'
 import CardModal from './CardModal'
 
 const PRIORITY_CONFIG = {
-  LOW: { label: 'Low', color: '#10b981', bg: 'rgba(16,185,129,0.15)' },
+  LOW: { label: 'Low', color: '#22a06b', bg: 'rgba(34,160,107,0.12)' },
   MEDIUM: { label: 'Medium', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
-  HIGH: { label: 'High', color: '#f97316', bg: 'rgba(249,115,22,0.15)' },
-  URGENT: { label: 'Urgent', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
+  HIGH: { label: 'High', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
 }
 
 export default function TaskCard({ card, index, board, allMembers, onBoardUpdate }) {

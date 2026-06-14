@@ -1,165 +1,225 @@
-const { PrismaClient } = require('@prisma/client');
+const mongoose = require('mongoose');
+const Board = require('../models/Board');
+const Task = require('../models/Task');
+const User = require('../models/User');
+const { findBoardForUser } = require('../utils/access');
+const { serializeTask, toId } = require('../utils/serializers');
+const {
+  VALID_PRIORITIES,
+  VALID_STATUSES,
+  normalizePriority,
+  normalizeStatus,
+} = require('../utils/kanban');
 
-const prisma = new PrismaClient();
+const populateTask = (query) => query
+  .populate('assignee', 'name email role createdAt updatedAt')
+  .populate('createdBy', 'name email role createdAt updatedAt');
 
-const canAccessBoard = async (boardId, userId, userRole) => {
-  if (userRole === 'ADMIN') return true;
-  const board = await prisma.board.findUnique({
-    where: { id: boardId },
-    include: { members: { where: { userId } } },
-  });
-  return board && (board.ownerId === userId || board.members.length > 0);
+const boardMemberIds = (board) => [
+  toId(board.owner),
+  ...(board.members || []).map(toId),
+].filter(Boolean);
+
+const validateAssignee = async (board, assigneeId) => {
+  if (!assigneeId) return null;
+  if (!mongoose.isValidObjectId(assigneeId)) {
+    return { error: 'Invalid assignee', status: 400 };
+  }
+
+  const assignee = await User.findById(assigneeId).select('name email role');
+  if (!assignee) return { error: 'Assignee not found', status: 404 };
+
+  if (!boardMemberIds(board).includes(toId(assignee))) {
+    return { error: 'Assignee must be the board owner or a board member', status: 400 };
+  }
+
+  return { assignee };
 };
 
-// GET /api/boards/:boardId/cards
+const getAccessibleBoardIds = async (user) => {
+  const filter = user.role === 'ADMIN'
+    ? {}
+    : { $or: [{ owner: user.id }, { members: user.id }] };
+  const boards = await Board.find(filter).select('_id');
+  return boards.map((board) => board._id);
+};
+
+const emitTaskEvent = (req, boardId, event, payload) => {
+  const io = req.app.get('io');
+  if (!io) return;
+
+  io.to(boardId).emit(event, payload);
+  io.to(boardId).emit('taskUpdated', payload);
+};
+
 const getCards = async (req, res) => {
   try {
     const { boardId } = req.params;
-    const hasAccess = await canAccessBoard(boardId, req.user.id, req.user.role);
-    if (!hasAccess) return res.status(403).json({ message: 'Access denied' });
+    const { board, error, status } = await findBoardForUser(boardId, req.user);
+    if (!board) return res.status(status).json({ message: error });
 
-    const cards = await prisma.card.findMany({
-      where: { column: { boardId } },
-      include: {
-        assignee: { select: { id: true, name: true, email: true } },
-        createdBy: { select: { id: true, name: true, email: true } },
-        column: { select: { id: true, name: true } },
-      },
-      orderBy: [{ columnId: 'asc' }, { order: 'asc' }],
-    });
-
-    res.json(cards);
+    const tasks = await populateTask(Task.find({ board: boardId }).sort({ status: 1, order: 1, createdAt: 1 }));
+    res.json(tasks.map(serializeTask));
   } catch (error) {
     console.error('Get cards error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
 
-// POST /api/boards/:boardId/cards
+const getTasks = async (req, res) => {
+  try {
+    const { boardId } = req.query;
+
+    if (boardId) {
+      req.params.boardId = boardId;
+      return getCards(req, res);
+    }
+
+    const boardIds = await getAccessibleBoardIds(req.user);
+    const tasks = await populateTask(Task.find({ board: { $in: boardIds } }).sort({ updatedAt: -1 }));
+
+    res.json(tasks.map(serializeTask));
+  } catch (error) {
+    console.error('Get tasks error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 const createCard = async (req, res) => {
   try {
-    const { boardId } = req.params;
-    const { title, description, columnId, assigneeId, dueDate, priority } = req.body;
+    const boardId = req.params.boardId || req.body.boardId;
+    const { title, description, dueDate } = req.body;
+    const status = normalizeStatus(req.body.status || req.body.columnId) || 'TODO';
+    const priority = normalizePriority(req.body.priority) || 'MEDIUM';
+    const assigneeId = req.body.assigneeId || req.body.assignee || null;
 
-    if (!title) return res.status(400).json({ message: 'Card title is required' });
-    if (!columnId) return res.status(400).json({ message: 'Column ID is required' });
+    if (!boardId) return res.status(400).json({ message: 'Board ID is required' });
+    if (!title?.trim()) return res.status(400).json({ message: 'Card title is required' });
+    if (!VALID_STATUSES.includes(status)) return res.status(400).json({ message: 'Invalid status' });
+    if (!VALID_PRIORITIES.includes(priority)) return res.status(400).json({ message: 'Invalid priority' });
 
-    const hasAccess = await canAccessBoard(boardId, req.user.id, req.user.role);
-    if (!hasAccess) return res.status(403).json({ message: 'Access denied' });
+    const { board, error, status: accessStatus } = await findBoardForUser(boardId, req.user);
+    if (!board) return res.status(accessStatus).json({ message: error });
 
-    // Verify column belongs to board
-    const column = await prisma.column.findFirst({ where: { id: columnId, boardId } });
-    if (!column) return res.status(404).json({ message: 'Column not found on this board' });
+    const assigneeResult = await validateAssignee(board, assigneeId);
+    if (assigneeResult?.error) {
+      return res.status(assigneeResult.status).json({ message: assigneeResult.error });
+    }
 
-    // Get max order in column
-    const maxOrderCard = await prisma.card.findFirst({
-      where: { columnId },
-      orderBy: { order: 'desc' },
-    });
-    const order = maxOrderCard ? maxOrderCard.order + 1 : 0;
+    const maxOrderTask = await Task.findOne({ board: boardId, status }).sort({ order: -1 }).select('order');
+    const order = maxOrderTask ? maxOrderTask.order + 1 : 0;
 
-    const card = await prisma.card.create({
-      data: {
-        title,
-        description,
-        priority: priority || 'MEDIUM',
-        dueDate: dueDate ? new Date(dueDate) : null,
-        order,
-        columnId,
-        assigneeId: assigneeId || null,
-        createdById: req.user.id,
-      },
-      include: {
-        assignee: { select: { id: true, name: true, email: true } },
-        createdBy: { select: { id: true, name: true, email: true } },
-        column: { select: { id: true, name: true, boardId: true } },
-      },
+    let task = await Task.create({
+      board: boardId,
+      title: title.trim(),
+      description: description?.trim() || '',
+      assignee: assigneeResult?.assignee?._id || null,
+      dueDate: dueDate ? new Date(dueDate) : null,
+      priority,
+      status,
+      order,
+      createdBy: req.user.id,
     });
 
-    const io = req.app.get('io');
-    if (io) io.to(boardId).emit('card:created', card);
+    task = await populateTask(Task.findById(task._id));
+    const serialized = serializeTask(task);
 
-    res.status(201).json(card);
+    emitTaskEvent(req, boardId, 'card:created', serialized);
+    res.status(201).json(serialized);
   } catch (error) {
     console.error('Create card error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
 
-// PATCH /api/cards/:id
 const updateCard = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, columnId, assigneeId, dueDate, priority, order } = req.body;
+    if (!mongoose.isValidObjectId(id)) return res.status(404).json({ message: 'Card not found' });
 
-    const card = await prisma.card.findUnique({
-      where: { id },
-      include: { column: { select: { boardId: true } } },
-    });
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ message: 'Card not found' });
 
-    if (!card) return res.status(404).json({ message: 'Card not found' });
+    const { board, error, status: accessStatus } = await findBoardForUser(toId(task.board), req.user);
+    if (!board) return res.status(accessStatus).json({ message: error });
 
-    const boardId = card.column.boardId;
-    const hasAccess = await canAccessBoard(boardId, req.user.id, req.user.role);
-    if (!hasAccess) return res.status(403).json({ message: 'Access denied' });
-
-    // Members can only edit cards they created
-    if (req.user.role === 'MEMBER' && card.createdById !== req.user.id) {
+    if (req.user.role === 'MEMBER' && toId(task.createdBy) !== req.user.id) {
       return res.status(403).json({ message: 'You can only edit your own cards' });
     }
 
-    const updatedCard = await prisma.card.update({
-      where: { id },
-      data: {
-        ...(title !== undefined && { title }),
-        ...(description !== undefined && { description }),
-        ...(columnId !== undefined && { columnId }),
-        ...(assigneeId !== undefined && { assigneeId: assigneeId || null }),
-        ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
-        ...(priority !== undefined && { priority }),
-        ...(order !== undefined && { order }),
-      },
-      include: {
-        assignee: { select: { id: true, name: true, email: true } },
-        createdBy: { select: { id: true, name: true, email: true } },
-        column: { select: { id: true, name: true, boardId: true } },
-      },
-    });
+    const nextStatus = normalizeStatus(req.body.status || req.body.columnId);
+    const nextPriority = normalizePriority(req.body.priority);
+    const assigneeId = req.body.assigneeId !== undefined ? req.body.assigneeId : req.body.assignee;
 
-    const io = req.app.get('io');
-    if (io) io.to(boardId).emit('card:updated', updatedCard);
+    if (nextStatus && !VALID_STATUSES.includes(nextStatus)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
 
-    res.json(updatedCard);
+    if (nextPriority && !VALID_PRIORITIES.includes(nextPriority)) {
+      return res.status(400).json({ message: 'Invalid priority' });
+    }
+
+    let assignee = task.assignee;
+    if (assigneeId !== undefined) {
+      const assigneeResult = await validateAssignee(board, assigneeId || null);
+      if (assigneeResult?.error) {
+        return res.status(assigneeResult.status).json({ message: assigneeResult.error });
+      }
+      assignee = assigneeResult?.assignee?._id || null;
+    }
+
+    if (req.body.title !== undefined) {
+      if (!req.body.title?.trim()) return res.status(400).json({ message: 'Card title is required' });
+      task.title = req.body.title.trim();
+    }
+
+    if (req.body.description !== undefined) task.description = req.body.description?.trim() || '';
+    if (assigneeId !== undefined) task.assignee = assignee;
+    if (req.body.dueDate !== undefined) task.dueDate = req.body.dueDate ? new Date(req.body.dueDate) : null;
+    if (nextPriority) task.priority = nextPriority;
+
+    if (nextStatus && nextStatus !== task.status) {
+      task.status = nextStatus;
+      if (req.body.order === undefined) {
+        const maxOrderTask = await Task.findOne({ board: task.board, status: nextStatus }).sort({ order: -1 }).select('order');
+        task.order = maxOrderTask ? maxOrderTask.order + 1 : 0;
+      }
+    }
+
+    if (req.body.order !== undefined) task.order = Number(req.body.order);
+
+    await task.save();
+
+    const updatedTask = await populateTask(Task.findById(id));
+    const serialized = serializeTask(updatedTask);
+
+    emitTaskEvent(req, serialized.boardId, 'card:updated', serialized);
+    res.json(serialized);
   } catch (error) {
     console.error('Update card error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
 
-// DELETE /api/cards/:id
 const deleteCard = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) return res.status(404).json({ message: 'Card not found' });
 
-    const card = await prisma.card.findUnique({
-      where: { id },
-      include: { column: { select: { boardId: true } } },
-    });
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ message: 'Card not found' });
 
-    if (!card) return res.status(404).json({ message: 'Card not found' });
+    const { board, error, status } = await findBoardForUser(toId(task.board), req.user);
+    if (!board) return res.status(status).json({ message: error });
 
-    const boardId = card.column.boardId;
-
-    // Members can only delete their own cards; Admins can delete any
-    if (req.user.role === 'MEMBER' && card.createdById !== req.user.id) {
+    if (req.user.role === 'MEMBER' && toId(task.createdBy) !== req.user.id) {
       return res.status(403).json({ message: 'You can only delete your own cards' });
     }
 
-    await prisma.card.delete({ where: { id } });
+    const boardId = toId(task.board);
+    await Task.findByIdAndDelete(id);
 
-    const io = req.app.get('io');
-    if (io) io.to(boardId).emit('card:deleted', { id, boardId });
-
+    emitTaskEvent(req, boardId, 'card:deleted', { id, boardId });
     res.json({ message: 'Card deleted successfully' });
   } catch (error) {
     console.error('Delete card error:', error);
@@ -167,30 +227,79 @@ const deleteCard = async (req, res) => {
   }
 };
 
-// PATCH /api/boards/:boardId/cards/reorder
 const reorderCards = async (req, res) => {
   try {
     const { boardId } = req.params;
-    const { cards } = req.body; // [{ id, columnId, order }]
+    const { cards, movedCardId } = req.body;
 
-    const hasAccess = await canAccessBoard(boardId, req.user.id, req.user.role);
-    if (!hasAccess) return res.status(403).json({ message: 'Access denied' });
+    if (!Array.isArray(cards)) {
+      return res.status(400).json({ message: 'Cards array is required' });
+    }
 
-    // Batch update using transaction
-    await prisma.$transaction(
-      cards.map(({ id, columnId, order }) =>
-        prisma.card.update({ where: { id }, data: { columnId, order } })
-      )
-    );
+    const { board, error, status } = await findBoardForUser(boardId, req.user);
+    if (!board) return res.status(status).json({ message: error });
 
-    const io = req.app.get('io');
-    if (io) io.to(boardId).emit('card:reordered', { boardId, cards });
+    const ids = cards.map((card) => card.id).filter((id) => mongoose.isValidObjectId(id));
+    if (ids.length !== cards.length) {
+      return res.status(400).json({ message: 'Invalid card id in reorder payload' });
+    }
 
+    const existingTasks = await Task.find({ _id: { $in: ids }, board: boardId }).select('_id createdBy');
+    if (existingTasks.length !== cards.length) {
+      return res.status(400).json({ message: 'All reordered cards must belong to this board' });
+    }
+
+    if (req.user.role === 'MEMBER') {
+      if (!movedCardId) {
+        return res.status(400).json({ message: 'Moved card id is required' });
+      }
+      const movedTask = existingTasks.find((task) => toId(task) === movedCardId);
+      if (!movedTask || toId(movedTask.createdBy) !== req.user.id) {
+        return res.status(403).json({ message: 'You can only move your own cards' });
+      }
+    }
+
+    const operations = cards.map((card) => {
+      const nextStatus = normalizeStatus(card.status || card.columnId);
+      if (!VALID_STATUSES.includes(nextStatus)) {
+        throw new Error('Invalid status in reorder payload');
+      }
+      return {
+        updateOne: {
+          filter: { _id: card.id, board: boardId },
+          update: { $set: { status: nextStatus, order: Number(card.order) || 0 } },
+        },
+      };
+    });
+
+    if (operations.length > 0) await Task.bulkWrite(operations);
+
+    const payloadCards = cards.map((card) => {
+      const status = normalizeStatus(card.status || card.columnId);
+      return {
+        id: card.id,
+        status,
+        columnId: status,
+        order: Number(card.order) || 0,
+      };
+    });
+
+    emitTaskEvent(req, boardId, 'card:reordered', { boardId, cards: payloadCards });
     res.json({ message: 'Cards reordered successfully' });
   } catch (error) {
+    if (error.message === 'Invalid status in reorder payload') {
+      return res.status(400).json({ message: error.message });
+    }
     console.error('Reorder cards error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
 
-module.exports = { getCards, createCard, updateCard, deleteCard, reorderCards };
+module.exports = {
+  getCards,
+  getTasks,
+  createCard,
+  updateCard,
+  deleteCard,
+  reorderCards,
+};
