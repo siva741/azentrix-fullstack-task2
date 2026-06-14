@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const Board = require('../models/Board');
+const Task = require('../models/Task');
 const { generateToken } = require('../utils/jwt');
 const { serializeUser } = require('../utils/serializers');
 
@@ -75,4 +77,54 @@ const getMe = async (req, res) => {
   res.json({ user: req.user });
 };
 
-module.exports = { register, login, getMe };
+const resetDb = async (req, res) => {
+  try {
+    const { secret, action, email, password } = req.body;
+
+    const expectedSecret = process.env.JWT_SECRET;
+    if (!secret || secret !== expectedSecret) {
+      return res.status(403).json({ message: 'Unauthorized: Invalid reset secret' });
+    }
+
+    if (action === 'clear') {
+      await Promise.all([
+        User.deleteMany({}),
+        Board.deleteMany({}),
+        Task.deleteMany({})
+      ]);
+      return res.json({ message: 'Database cleared successfully. You can now register a new admin user.' });
+    } else if (action === 'reset-admin') {
+      const adminEmail = email || process.env.ADMIN_EMAIL || 'admin@example.com';
+      const adminPassword = password || process.env.ADMIN_PASSWORD || 'ChangeMeToAStrongPassword';
+      
+      const hashedPassword = await bcrypt.hash(adminPassword, 12);
+      
+      const user = await User.findOneAndUpdate(
+        { email: adminEmail.trim().toLowerCase() },
+        {
+          name: process.env.ADMIN_NAME || 'Admin User',
+          password: hashedPassword,
+          role: 'ADMIN',
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+      
+      return res.json({
+        message: 'Admin user reset successfully',
+        admin: {
+          email: user.email,
+          role: user.role,
+          name: user.name,
+          password: adminPassword
+        }
+      });
+    } else {
+      return res.status(400).json({ message: 'Invalid action. Use "clear" or "reset-admin".' });
+    }
+  } catch (error) {
+    console.error('Reset DB error:', error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+module.exports = { register, login, getMe, resetDb };

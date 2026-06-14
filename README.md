@@ -137,6 +137,7 @@ The first user who registers also becomes an admin automatically.
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET /api/auth/me`
+- `POST /api/auth/reset-db` (secure admin reset / DB clear)
 
 ### Boards
 
@@ -244,3 +245,35 @@ Get-ChildItem -Recurse -Include *.js -Path backend\src,backend\scripts | ForEach
 - If the backend exits locally, check `backend/.env` and replace any old SQL/Prisma `DATABASE_URL` with `MONGODB_URI`.
 - The backend starts only after MongoDB connects, which prevents deployment from appearing healthy while the database is unavailable.
 - Socket.IO rooms are used so updates are broadcast to users on the same board.
+
+---
+
+## 🔒 Database Reset & Admin Credentials Reset
+
+If you forget the admin credentials or want to start fresh with a clean database, you can use the secure `/api/auth/reset-db` endpoint. It is protected by the `JWT_SECRET` key configured on your server (which prevents unauthorized access).
+
+### 1. Reset Admin User
+To reset the admin password (or create the admin user if deleted), send a POST request with `action: "reset-admin"`.
+
+```bash
+curl -X POST "https://your-backend-url.onrender.com/api/auth/reset-db" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secret": "YOUR_JWT_SECRET_HERE",
+    "action": "reset-admin",
+    "email": "admin@example.com",
+    "password": "NewSecurePassword123"
+  }'
+```
+
+### 2. Clear Database
+To completely clear the database (deleting all boards, cards, and users so the next registered user will automatically become the new Admin), send a POST request with `action: "clear"`.
+
+```bash
+curl -X POST "https://your-backend-url.onrender.com/api/auth/reset-db" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secret": "YOUR_JWT_SECRET_HERE",
+    "action": "clear"
+  }'
+```
