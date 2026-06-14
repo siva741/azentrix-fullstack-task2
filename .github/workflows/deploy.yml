@@ -8,28 +8,42 @@ jobs:
   deploy-backend:
     name: Deploy Backend to Render
     runs-on: ubuntu-latest
-    if: "${{ secrets.RENDER_API_KEY != '' && secrets.RENDER_SERVICE_ID != '' }}"
+    env:
+      RENDER_API_KEY: "${{ secrets.RENDER_API_KEY }}"
+      RENDER_SERVICE_ID: "${{ secrets.RENDER_SERVICE_ID }}"
     steps:
+      - name: Check Render deploy secrets
+        id: render-secrets
+        run: |
+          if [ -n "$RENDER_API_KEY" ] && [ -n "$RENDER_SERVICE_ID" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping Render deploy because RENDER_API_KEY or RENDER_SERVICE_ID is missing."
+          fi
+
       - name: Checkout
+        if: steps.render-secrets.outputs.enabled == 'true'
         uses: actions/checkout@v4
 
       - name: Use Node.js
+        if: steps.render-secrets.outputs.enabled == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
       - name: Install backend deps
+        if: steps.render-secrets.outputs.enabled == 'true'
         working-directory: backend
         run: npm ci
 
-      - name: Generate Prisma client
+      - name: Check backend JavaScript syntax
+        if: steps.render-secrets.outputs.enabled == 'true'
         working-directory: backend
-        run: npx prisma generate
+        run: find src scripts -name "*.js" -print0 | xargs -0 -n1 node --check
 
       - name: Trigger Render deploy
-        env:
-          RENDER_API_KEY: "${{ secrets.RENDER_API_KEY }}"
-          RENDER_SERVICE_ID: "${{ secrets.RENDER_SERVICE_ID }}"
+        if: steps.render-secrets.outputs.enabled == 'true'
         run: |
           curl -X POST "https://api.render.com/deployments" \
             -H "Accept: application/json" \
@@ -40,21 +54,34 @@ jobs:
   deploy-frontend:
     name: Deploy Frontend to Vercel
     runs-on: ubuntu-latest
-    if: "${{ secrets.VERCEL_TOKEN != '' }}"
+    env:
+      VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
     steps:
+      - name: Check Vercel deploy secret
+        id: vercel-secrets
+        run: |
+          if [ -n "$VERCEL_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping Vercel deploy because VERCEL_TOKEN is missing."
+          fi
+
       - name: Checkout
+        if: steps.vercel-secrets.outputs.enabled == 'true'
         uses: actions/checkout@v4
 
       - name: Setup Node
+        if: steps.vercel-secrets.outputs.enabled == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
       - name: Install vercel CLI
+        if: steps.vercel-secrets.outputs.enabled == 'true'
         run: npm i -g vercel
 
       - name: Deploy frontend to Vercel
-        env:
-          VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
+        if: steps.vercel-secrets.outputs.enabled == 'true'
         working-directory: frontend
         run: vercel --prod --token "$VERCEL_TOKEN"
