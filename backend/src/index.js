@@ -57,6 +57,14 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  res.on('finish', () => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Status: ${res.statusCode}`);
+  });
+  next();
+});
+
 app.get('/', (req, res) => {
   res.json({
     message: 'TaskFlow API is running',
