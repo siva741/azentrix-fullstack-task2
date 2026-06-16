@@ -1,277 +1,187 @@
-# TaskFlow - Multi-User Task Management System
+# 🚀 TaskFlow - Multi-User Task Management System
 
-TaskFlow is a lightweight, self-hostable task collaboration app built for remote teams. It works like a focused mini Trello/Jira scrum board with JWT authentication, MongoDB persistence, draggable cards, role-based permissions, and near real-time Socket.IO updates.
+TaskFlow is a lightweight, premium, self-hostable task collaboration app built for remote teams. It operates as a focused scrum/Kanban board with robust JWT authentication, MongoDB persistence, draggable cards, role-based access controls, and real-time Socket.IO synchronization.
 
-## Live Links
+---
 
-- Live URL: [https://azentrix-fullstack-task2-chi.vercel.app](https://azentrix-fullstack-task2-chi.vercel.app)
+## 🌐 Live Deployment Links
 
-Render free-tier services can take a short time to wake up after inactivity. If the backend link times out on the first request, wait a moment and reload.
+* **Frontend Application (Vercel):** [https://azentrix-fullstack-task2-chi.vercel.app](https://azentrix-fullstack-task2-chi.vercel.app)
+* **Backend API Gateway (Render):** [https://azentrix-taskflow-api.onrender.com/api](https://azentrix-taskflow-api.onrender.com/api)
+* **Database (MongoDB Atlas):** Hosted on `Cluster0` (Database: `azentrix_task2`)
 
-## Features
+> 💡 *Note: Render's free tier services automatically spin down after inactivity. If the app takes a few seconds to load on your first visit, please wait a moment for the backend instance to spin up.*
 
-- User registration and login with JWT auth
-- Password hashing with bcrypt
-- MongoDB database using Mongoose
-- Boards with default columns: To Do, In Progress, Done
-- Drag-and-drop cards
-- Card fields: title, description, assignee, due date, priority, status
-- Priority colors for Low, Medium, and High
-- Due date badges for upcoming, due today, and overdue cards
-- Near real-time updates with Socket.IO board rooms
-- Admin role for user management and full board/card control
-- Member role limited to managing their own cards
-- Dashboard totals for boards, tasks, completed tasks, and pending tasks
-- Admin page for creating users, switching roles, and deleting users
-- Render backend config and Vercel frontend config included
+---
 
-## Tech Stack
+## ✨ Features
 
-| Layer | Technology |
-| --- | --- |
-| Frontend | React, Vite, React Router |
-| UI | CSS, lucide-react, framer-motion, react-hot-toast |
-| Drag and drop | @hello-pangea/dnd |
-| Realtime | Socket.IO, socket.io-client |
-| Backend | Node.js, Express |
-| Database | MongoDB Atlas, Mongoose |
-| Auth | JWT, bcryptjs |
-| Deployment | Vercel frontend, Render backend |
+- **Draggable Kanban Board:** Interactive, responsive board layout with columns for *To Do*, *In Progress*, and *Done* powered by `@hello-pangea/dnd`.
+- **Draggable Card Ordering:** Drag and drop cards inside a single column or move them between columns, preserving card indices and order.
+- **Detailed Card Metadata:** Supports titles, descriptions, due dates, priority levels (Low, Medium, High), status, and assigned members.
+- **Priority Visuals & Badges:** Color-coded priority borders/tags and intelligent due-date badges (Upcoming, Due Today, Overdue).
+- **Socket.IO Rooms:** Subscribes users to specific board rooms for real-time card movements, creation, edits, and deletions across multiple active browsers.
+- **Role-Based Access Control (RBAC):**
+  - `ADMIN`: Full management of users, all boards, columns, and cards.
+  - `MEMBER`: Limited to creating, modifying, and deleting only cards they own or are assigned to.
+- **Interactive Admin Dashboard:** Displays live analytics (total boards, total tasks, completed vs. pending tasks) and includes a user management panel.
+- **Database Reset Endpoint:** A secure endpoint (`/api/auth/reset-db`) protected by server secret to clear database contents or reset admin passwords.
 
-## Folder Structure
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Technology | Description |
+| --- | --- | --- |
+| **Frontend** | React (v19), Vite, React Router (v7) | Clean, component-based single-page application framework. |
+| **Styling** | Vanilla CSS, Framer Motion, Lucide | Dark glassmorphism theme, premium micro-animations, icons. |
+| **Realtime** | Socket.IO Client (v4) | Bidirectional websocket events for board updates. |
+| **Backend** | Node.js, Express | Fast, unopinionated, minimalist web framework. |
+| **Database** | MongoDB Atlas, Mongoose (v8) | Cloud-hosted document database and Object Data Modeling (ODM). |
+| **Auth** | JSON Web Tokens (JWT), BcryptJS | Secure password hashing and token-based stateful authentication. |
+
+---
+
+## 📂 Project Structure
 
 ```text
 azentrix-fullstack-task2/
-  backend/
-    scripts/
-      seedAdmin.js
-      setup.js
-    src/
-      config/db.js
-      controllers/
-      middleware/
-      models/
-      routes/
-      socket/
-      utils/
-      index.js
-  frontend/
-    public/
-    src/
-      components/
-      context/
-      pages/
-      services/
-      App.jsx
-      main.jsx
-      index.css
-  render.yaml
-  PROJECT_REPORT.md
+├── backend/
+│   ├── scripts/
+│   │   ├── runDevWithMemoryDb.js  # Runs dev backend with memory server
+│   │   ├── seedAdmin.js           # Seeds an admin user into the DB
+│   │   └── setup.js               # Tests Atlas database connection
+│   ├── src/
+│   │   ├── config/
+│   │   │   └── db.js              # Mongoose DB connection & DNS setup
+│   │   ├── controllers/           # Request handlers (auth, board, card, admin)
+│   │   ├── middleware/            # JWT authentication middleware
+│   │   ├── models/                # Mongoose schemas (User, Board, Task)
+│   │   ├── routes/                # Express API endpoints
+│   │   ├── socket/                # Socket.io connection handlers
+│   │   ├── utils/                 # Token helpers, constants, & serializers
+│   │   └── index.js               # Main server entry point
+│   ├── package.json
+│   └── .env.example
+├── frontend/
+│   ├── src/
+│   │   ├── components/            # KanbanBoard, Column, TaskCard, Layout
+│   │   ├── context/               # AuthContext and SocketContext
+│   │   ├── pages/                 # Login, Register, Dashboard, Board, Admin
+│   │   ├── services/              # API Axios instance & interceptors
+│   │   ├── App.jsx                # Router & Protected route wrapper
+│   │   ├── main.jsx               # React entry point with providers
+│   │   └── index.css              # Custom global styles & variables
+│   ├── vercel.json                # Vercel SPA rewrite rules
+│   ├── package.json
+│   └── .env.example
+└── render.yaml                    # Render Blueprint infrastructure definition
 ```
 
-## Environment Variables
+---
 
-Backend `backend/.env`:
+## ⚙️ Local Installation & Development
 
-```env
-MONGODB_URI="mongodb+srv://USER:PASSWORD@CLUSTER.mongodb.net/azentrix_taskflow?retryWrites=true&w=majority"
-JWT_SECRET="replace-with-a-long-random-secret"
-JWT_EXPIRES_IN="7d"
-PORT=4000
-CLIENT_URL="http://localhost:5173"
-
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=ChangeMeToAStrongPassword
-ADMIN_NAME=Admin User
-```
-
-Frontend `frontend/.env`:
-
-```env
-VITE_API_URL="http://localhost:4000/api"
-```
-
-## Local Installation
-
-1. Install backend dependencies:
-
+### 1. Backend Setup
 ```bash
 cd backend
 npm install
 cp .env.example .env
 ```
-
-2. Add your MongoDB Atlas URI and JWT secret in `backend/.env`.
-
-3. Optionally seed an admin user:
-
-```bash
-npm run seed:admin
+Fill in your `backend/.env` configuration:
+```env
+MONGODB_URI="mongodb+srv://<user>:<password>@cluster.mongodb.net/azentrix_task2"
+JWT_SECRET="generate-a-long-random-string"
+JWT_EXPIRES_IN="7d"
+PORT=4000
+CLIENT_URL="http://localhost:5173"
 ```
-
-4. Start the backend:
-
+Test your database connection:
+```bash
+npm run setup
+```
+Start the development server:
 ```bash
 npm run dev
 ```
-
-5. Install and start the frontend in a second terminal:
-
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev
-```
-
-6. Open `http://localhost:5173`.
-
-The first user who registers also becomes an admin automatically.
-
-## API Routes
-
-### Auth
-
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `POST /api/auth/reset-db` (secure admin reset / DB clear)
-
-### Boards
-
-- `GET /api/boards`
-- `POST /api/boards`
-- `GET /api/boards/:id`
-- `PUT /api/boards/:id`
-- `DELETE /api/boards/:id`
-- `POST /api/boards/:id/members`
-- `DELETE /api/boards/:id/members/:userId`
-
-### Cards and Tasks
-
-- `GET /api/boards/:boardId/cards`
-- `POST /api/boards/:boardId/cards`
-- `PATCH /api/boards/:boardId/cards/reorder`
-- `PATCH /api/cards/:id`
-- `DELETE /api/cards/:id`
-- `GET /api/tasks`
-- `POST /api/tasks`
-- `PATCH /api/tasks/:id`
-- `DELETE /api/tasks/:id`
-
-### Admin Users
-
-- `GET /api/admin/users`
-- `POST /api/admin/users`
-- `PATCH /api/admin/users/:id`
-- `DELETE /api/admin/users/:id`
-
-The same admin user-management API is also available at `/api/users`.
-
-## Deployment
-
-### MongoDB Atlas
-
-1. Create a free MongoDB Atlas cluster.
-2. Create a database user and password.
-3. Add your IP address or `0.0.0.0/0` for hosted services.
-4. Copy the connection string and use it as `MONGODB_URI`.
-
-### Render Backend
-
-Use the included `render.yaml`, or create a Web Service manually:
-
-- Root directory: `backend`
-- Build command: `npm install`
-- Start command: `node src/index.js`
-- Environment:
-  - `MONGODB_URI`
-  - `JWT_SECRET`
-  - `JWT_EXPIRES_IN=7d`
-  - `CLIENT_URL=https://your-vercel-app.vercel.app`
-  - `NODE_ENV=production`
-
-### Vercel Frontend
-
-Create a Vercel project from the `frontend` folder:
-
-- Framework: Vite
-- Build command: `npm install && npm run build`
-- Output directory: `dist`
-- Environment:
-  - `VITE_API_URL=https://your-render-service.onrender.com/api`
-
-If you redeploy under different Render or Vercel URLs, update the Live Links section above.
-
-## Screenshots and Demo
-
-Add screenshots here after deployment:
-
-- Login and registration page
-- Dashboard with board totals
-- Board page with To Do, In Progress, and Done columns
-- Admin user-management page
-
-Demo checklist:
-
-1. Register the first user and confirm the Admin role.
-2. Create a board.
-3. Add a member by email.
-4. Create cards with priority, assignee, and due date.
-5. Open the board in two browsers and drag a card between columns.
-6. Confirm the second browser updates in near real time.
-7. Log in as a member and confirm only owned cards can be edited, moved, or deleted.
-
-## Verification
-
-These checks pass in the completed project:
-
-```bash
-cd frontend
-npm run lint
-npm run build
-```
-
-```bash
-cd ..
-Get-ChildItem -Recurse -Include *.js -Path backend\src,backend\scripts | ForEach-Object { node --check $_.FullName }
-```
-
-## Notes
-
-- The app requires a real MongoDB connection to run the backend.
-- If the backend exits locally, check `backend/.env` and replace any old SQL/Prisma `DATABASE_URL` with `MONGODB_URI`.
-- The backend starts only after MongoDB connects, which prevents deployment from appearing healthy while the database is unavailable.
-- Socket.IO rooms are used so updates are broadcast to users on the same board.
 
 ---
 
-## 🔒 Database Reset & Admin Credentials Reset
-
-If you forget the admin credentials or want to start fresh with a clean database, you can use the secure `/api/auth/reset-db` endpoint. It is protected by the `JWT_SECRET` key configured on your server (which prevents unauthorized access).
-
-### 1. Reset Admin User
-To reset the admin password (or create the admin user if deleted), send a POST request with `action: "reset-admin"`.
-
+### 2. Frontend Setup
 ```bash
-curl -X POST "https://your-backend-url.onrender.com/api/auth/reset-db" \
+cd ../frontend
+npm install
+cp .env.example .env
+```
+Fill in your `frontend/.env` configuration:
+```env
+VITE_API_URL="http://localhost:4000/api"
+```
+Start the dev server:
+```bash
+npm run dev
+```
+Open **`http://localhost:5173`** in your browser.
+
+> 💡 *Note: The first user to register on a clean database is automatically assigned the **ADMIN** role.*
+
+---
+
+## 📡 API Endpoints
+
+### 🔐 Authentication
+- `POST /api/auth/register` - Create a new user account.
+- `POST /api/auth/login` - Authenticate credentials and return a JWT.
+- `GET /api/auth/me` - Fetch authenticated user details.
+- `POST /api/auth/reset-db` - Secure developer endpoint to reset/clear database.
+
+### 📋 Boards
+- `GET /api/boards` - Fetch all boards the user belongs to.
+- `POST /api/boards` - Create a new Kanban board.
+- `GET /api/boards/:id` - Fetch board columns and cards.
+- `DELETE /api/boards/:id` - Delete a board (Owner/Admin only).
+- `POST /api/boards/:id/members` - Add user as a board member.
+- `DELETE /api/boards/:id/members/:userId` - Remove user from a board.
+
+### 🗂️ Cards & Tasks
+- `GET /api/boards/:boardId/cards` - Fetch all cards inside a board.
+- `POST /api/boards/:boardId/cards` - Create a card.
+- `PATCH /api/boards/:boardId/cards/reorder` - Save drag-and-drop card ordering.
+- `PATCH /api/cards/:id` - Update card details/priority/assignee.
+- `DELETE /api/cards/:id` - Delete card.
+
+---
+
+## 🔒 Database Reset & Recovery
+
+If you need to recover credentials or wipe database collections to start fresh, you can call the secure reset endpoint.
+
+### Clear Database
+Deletes all boards, tasks, and users (allowing the next registered user to become the new Admin):
+```bash
+curl -X POST "https://azentrix-taskflow-api.onrender.com/api/auth/reset-db" \
   -H "Content-Type: application/json" \
   -d '{
-    "secret": "YOUR_JWT_SECRET_HERE",
+    "secret": "YOUR_JWT_SECRET",
+    "action": "clear"
+  }'
+```
+
+### Reset Admin Credentials
+Recreates or updates the admin user:
+```bash
+curl -X POST "https://azentrix-taskflow-api.onrender.com/api/auth/reset-db" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secret": "YOUR_JWT_SECRET",
     "action": "reset-admin",
     "email": "admin@example.com",
     "password": "NewSecurePassword123"
   }'
 ```
 
-### 2. Clear Database
-To completely clear the database (deleting all boards, cards, and users so the next registered user will automatically become the new Admin), send a POST request with `action: "clear"`.
+---
 
-```bash
-curl -X POST "https://your-backend-url.onrender.com/api/auth/reset-db" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "secret": "YOUR_JWT_SECRET_HERE",
-    "action": "clear"
-  }'
-```
+## 📄 License
+
+Distributed under the MIT License. Copyright © 2026.
