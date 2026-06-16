@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 const dns = require('dns');
-dns.setServers(['8.8.8.8', '1.1.1.1']);
+
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (error) {
+  console.warn('Warning: Failed to set custom DNS servers, using system defaults:', error.message);
+}
 
 const isMongoUri = (uri = '') => uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://');
 
